@@ -23,10 +23,6 @@ function escapeToml(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
 }
 
-function escapeJson(value: string): string {
-  return JSON.stringify(value)
-}
-
 function sanitizeFilenamePart(value: string): string {
   return value
     .trim()
@@ -35,34 +31,6 @@ function sanitizeFilenamePart(value: string): string {
     .replace(/-+/g, '-')
     .replace(/^-|-$/g, '')
     .toLowerCase()
-}
-
-function buildCodexConfig(baseUrl: string, providerName: string): string {
-  const safeProviderName = escapeToml(providerName)
-  const safeBaseUrl = escapeToml(baseUrl)
-
-  return `model_provider = "${safeProviderName}"
-model = "${CODEX_MODEL}"
-review_model = "${CODEX_MODEL}"
-model_reasoning_effort = "medium"
-disable_response_storage = true
-
-[model_providers."${safeProviderName}"]
-name = "${safeProviderName}"
-base_url = "${safeBaseUrl}"
-wire_api = "responses"
-requires_openai_auth = true
-
-[features]
-web_search_request = true
-`
-}
-
-function buildAuthJson(apiKey: string): string {
-  return `{
-  "OPENAI_API_KEY": ${escapeJson(apiKey)}
-}
-`
 }
 
 function buildProviderConfigBlock(baseUrl: string, providerName: string, apiKey: string): string {
