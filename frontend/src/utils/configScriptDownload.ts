@@ -135,7 +135,7 @@ $ConfigFile = Join-Path -Path $ConfigDir -ChildPath "config.toml"
 $AuthFile = Join-Path -Path $ConfigDir -ChildPath "auth.json"
 $BackupSuffix = Get-Date -Format "yyyyMMddHHmmss"
 
-New-Item -ItemType Directory -LiteralPath $ConfigDir -Force | Out-Null
+New-Item -ItemType Directory -Path $ConfigDir -Force | Out-Null
 
 if (Test-Path -LiteralPath $ConfigFile) {
   Copy-Item -LiteralPath $ConfigFile -Destination "$ConfigFile.bak.$BackupSuffix" -Force

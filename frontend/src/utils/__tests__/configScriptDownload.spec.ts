@@ -24,6 +24,7 @@ describe('configScriptDownload', () => {
     expect(decodedScript).toContain('model_provider = "go2me"')
     expect(decodedScript).toContain('model_reasoning_effort = "medium"')
     expect(decodedScript).toContain('[Environment]::GetFolderPath("UserProfile")')
+    expect(decodedScript).toContain('New-Item -ItemType Directory -Path $ConfigDir -Force')
     expect(decodedScript).toContain('Set-Content -LiteralPath $ConfigFile -Encoding UTF8')
     expect(decodedScript).toContain('Set-Content -LiteralPath $AuthFile -Encoding UTF8')
 
