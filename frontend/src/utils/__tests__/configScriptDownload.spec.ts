@@ -29,6 +29,7 @@ describe('configScriptDownload', () => {
     expect(decodedScript).toContain('[Environment]::GetFolderPath("UserProfile")')
     expect(decodedScript).toContain('New-Item -ItemType Directory -Path $ConfigDir -Force')
     expect(decodedScript).toContain('$Auth["OPENAI_API_KEY"] = $ApiKey')
+    expect(decodedScript).toContain('$Auth["auth_mode"] = "apikey"')
     expect(decodedScript).toContain('Codex auth updated: $AuthFile')
     expect(decodedScript).toContain('Set-Content -LiteralPath $ConfigFile -Encoding UTF8')
     expect(decodedScript).toContain('Set-Content -LiteralPath $AuthFile -Encoding UTF8')

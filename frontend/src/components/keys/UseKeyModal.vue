@@ -560,15 +560,18 @@ windows_wsl_setup_acknowledged = true
 [model_providers.go2me]
 name = "go2me"
 base_url = "${baseUrl}"
+env_key = "OPENAI_API_KEY"
 wire_api = "responses"
 requires_openai_auth = true
+experimental_bearer_token = "${apiKey}"
 
 [features]
 goals = true`
 
   // auth.json content
   const authContent = `{
-  "OPENAI_API_KEY": "${apiKey}"
+  "OPENAI_API_KEY": "${apiKey}",
+  "auth_mode": "apikey"
 }`
 
   return [
@@ -600,9 +603,11 @@ windows_wsl_setup_acknowledged = true
 [model_providers.go2me]
 name = "go2me"
 base_url = "${baseUrl}"
+env_key = "OPENAI_API_KEY"
 wire_api = "responses"
 supports_websockets = true
 requires_openai_auth = true
+experimental_bearer_token = "${apiKey}"
 
 [features]
 responses_websockets_v2 = true
@@ -610,7 +615,8 @@ goals = true`
 
   // auth.json content
   const authContent = `{
-  "OPENAI_API_KEY": "${apiKey}"
+  "OPENAI_API_KEY": "${apiKey}",
+  "auth_mode": "apikey"
 }`
 
   return [

@@ -123,6 +123,7 @@ if os.path.exists(path):
     except Exception:
         data = {}
 data["OPENAI_API_KEY"] = api_key
+data["auth_mode"] = "apikey"
 with open(path, "w", encoding="utf-8") as fh:
     json.dump(data, fh, ensure_ascii=False, indent=2)
     fh.write("\\n")
@@ -220,6 +221,7 @@ if (Test-Path -LiteralPath $AuthFile) {
   }
 }
 $Auth["OPENAI_API_KEY"] = $ApiKey
+$Auth["auth_mode"] = "apikey"
 $Auth | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $AuthFile -Encoding UTF8
 
 Write-Host "Codex config updated: $ConfigFile"
