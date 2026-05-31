@@ -41,7 +41,6 @@ windows_wsl_setup_acknowledged = true
 [model_providers."${safeProviderName}"]
 name = "${safeProviderName}"
 base_url = "${safeBaseUrl}"
-env_key = "OPENAI_API_KEY"
 wire_api = "responses"
 requires_openai_auth = true
 experimental_bearer_token = "${safeApiKey}"`

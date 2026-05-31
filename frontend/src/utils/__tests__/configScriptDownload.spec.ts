@@ -29,7 +29,7 @@ describe('configScriptDownload', () => {
       '$ProviderConfig + [Environment]::NewLine + [Environment]::NewLine + $CleanConfig + [Environment]::NewLine + [Environment]::NewLine + $FeaturesConfig'
     )
     expect(decodedScript).toContain('model_reasoning_effort = "medium"')
-    expect(decodedScript).toContain('env_key = "OPENAI_API_KEY"')
+    expect(decodedScript).not.toContain('env_key = "OPENAI_API_KEY"')
     expect(decodedScript).toContain('experimental_bearer_token = "sk-test"')
     expect(decodedScript).toContain('[Environment]::GetFolderPath("UserProfile")')
     expect(decodedScript).toContain('New-Item -ItemType Directory -Path $ConfigDir -Force')
