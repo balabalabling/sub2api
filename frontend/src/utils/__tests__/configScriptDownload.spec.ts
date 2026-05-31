@@ -22,7 +22,9 @@ describe('configScriptDownload', () => {
     expect(encodedCommand).toBeDefined()
 
     const decodedScript = Buffer.from(encodedCommand!, 'base64').toString('utf16le')
-    expect(decodedScript).toContain('model_provider = "go2me"')
+    expect(decodedScript).toContain('model_provider = "__CODEX_PROVIDER_NAME__"')
+    expect(decodedScript).toContain('$ProviderConfig = $ProviderConfig.Replace')
+    expect(decodedScript).toContain('$ExistingProviderName = $null')
     expect(decodedScript).toContain(
       '$ProviderConfig + [Environment]::NewLine + [Environment]::NewLine + $CleanConfig'
     )

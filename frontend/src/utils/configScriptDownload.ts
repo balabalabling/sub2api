@@ -15,6 +15,7 @@ interface DownloadScript {
 
 const CODEX_MODEL = 'gpt-5.5'
 const CODEX_PROVIDER_NAME = 'go2me'
+const CODEX_PROVIDER_PLACEHOLDER = '__CODEX_PROVIDER_NAME__'
 
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, '')
@@ -63,7 +64,7 @@ function encodePowerShellCommand(script: string): string {
 function buildUnixScript(input: ConfigScriptInput): DownloadScript {
   const baseUrl = trimTrailingSlash(input.baseUrl || window.location.origin)
   const providerName = CODEX_PROVIDER_NAME
-  const providerConfig = buildProviderConfigBlock(baseUrl, providerName, input.apiKey)
+  const providerConfig = buildProviderConfigBlock(baseUrl, CODEX_PROVIDER_PLACEHOLDER, input.apiKey)
 
   return {
     filename: `configure-${providerName}-codex.sh`,
@@ -88,6 +89,34 @@ if [ -f "\${AUTH_FILE}" ]; then
   cp "\${AUTH_FILE}" "\${AUTH_FILE}.bak.\${BACKUP_SUFFIX}"
 fi
 
+EXISTING_PROVIDER="$(awk '
+  /^[[:space:]]*\[/ { exit }
+  /^[[:space:]]*model_provider[[:space:]]*=/ {
+    line = $0
+    sub(/^[^=]*=/, "", line)
+    gsub(/^[[:space:]"'\\''"]+|[[:space:]"'\\''"]+$/, "", line)
+    print line
+    exit
+  }
+' "\${CONFIG_FILE}" 2>/dev/null || true)"
+if [ -z "\${EXISTING_PROVIDER}" ]; then
+  EXISTING_PROVIDER="$(awk '
+    /^\[model_providers\./ {
+      line = $0
+      sub(/^\[model_providers\./, "", line)
+      sub(/\]$/, "", line)
+      gsub(/^"|"$/, "", line)
+      if (line != "go2me") {
+        print line
+        exit
+      }
+    }
+  ' "\${CONFIG_FILE}" 2>/dev/null || true)"
+fi
+if [ -n "\${EXISTING_PROVIDER}" ]; then
+  PROVIDER_NAME="\${EXISTING_PROVIDER}"
+fi
+
 TMP_CONFIG="\${CONFIG_FILE}.tmp.\${BACKUP_SUFFIX}"
 awk -v provider="\${PROVIDER_NAME}" '
   BEGIN { skip = 0 }
@@ -95,16 +124,18 @@ awk -v provider="\${PROVIDER_NAME}" '
     if (!skip) next
   }
   $0 == "[features]" { skip = 1; next }
-  $0 == ("[model_providers.\"" provider "\"]") || $0 == ("[model_providers." provider "]") { skip = 1; next }
+  $0 == ("[model_providers.\"" provider "\"]") || $0 == ("[model_providers." provider "]") || $0 == "[model_providers.\"go2me\"]" || $0 == "[model_providers.go2me]" { skip = 1; next }
   /^\[/ { skip = 0 }
   !skip { print }
 ' "\${CONFIG_FILE}" 2>/dev/null > "\${TMP_CONFIG}" || true
 
 OLD_CONFIG="$(cat "\${TMP_CONFIG}")"
-cat > "\${TMP_CONFIG}" <<'SUB2API_CODEX_CONFIG'
-
+PROVIDER_CONFIG="$(cat <<'SUB2API_CODEX_CONFIG'
 ${providerConfig}
 SUB2API_CODEX_CONFIG
+)"
+PROVIDER_CONFIG="\${PROVIDER_CONFIG//${CODEX_PROVIDER_PLACEHOLDER}/\${PROVIDER_NAME}}"
+printf '%s\n' "\${PROVIDER_CONFIG}" > "\${TMP_CONFIG}"
 if [ -n "\${OLD_CONFIG//[[:space:]]/}" ]; then
   printf '\n\n%s\n' "\${OLD_CONFIG}" >> "\${TMP_CONFIG}"
 fi
@@ -137,7 +168,7 @@ chmod 600 "\${CONFIG_FILE}" "\${AUTH_FILE}"
 
 echo "Codex config updated: \${CONFIG_FILE}"
 echo "Codex auth updated: \${AUTH_FILE}"
-echo "Restart Codex to use ${providerName}."
+echo "Restart Codex to use \${PROVIDER_NAME}."
 `
   }
 }
@@ -145,7 +176,7 @@ echo "Restart Codex to use ${providerName}."
 function buildWindowsScript(input: ConfigScriptInput): DownloadScript {
   const baseUrl = trimTrailingSlash(input.baseUrl || window.location.origin)
   const providerName = CODEX_PROVIDER_NAME
-  const providerConfig = buildProviderConfigBlock(baseUrl, providerName, input.apiKey)
+  const providerConfig = buildProviderConfigBlock(baseUrl, CODEX_PROVIDER_PLACEHOLDER, input.apiKey)
   const powerShellScript = `$ErrorActionPreference = "Stop"
 
 $UserProfile = [Environment]::GetFolderPath("UserProfile")
@@ -177,8 +208,33 @@ if (Test-Path -LiteralPath $ConfigFile) {
   $ExistingConfig = Get-Content -LiteralPath $ConfigFile -Raw -Encoding UTF8
 }
 
+$ExistingProviderName = $null
+foreach ($Line in ($ExistingConfig -split "\\r?\\n")) {
+  if ($Line -match '^\\s*\\[') { break }
+  if ($Line -match '^\\s*model_provider\\s*=\\s*["'']?([^"'']+)["'']?\\s*$') {
+    $ExistingProviderName = $Matches[1].Trim()
+    break
+  }
+}
+if ([string]::IsNullOrWhiteSpace($ExistingProviderName)) {
+  foreach ($Line in ($ExistingConfig -split "\\r?\\n")) {
+    if ($Line -match '^\\[model_providers\\.(?:"([^"]+)"|([^\\]]+))\\]$') {
+      $CandidateProviderName = if ($Matches[1]) { $Matches[1] } else { $Matches[2] }
+      if ($CandidateProviderName -ne "go2me") {
+        $ExistingProviderName = $CandidateProviderName.Trim()
+        break
+      }
+    }
+  }
+}
+if (-not [string]::IsNullOrWhiteSpace($ExistingProviderName)) {
+  $ProviderName = $ExistingProviderName
+}
+
 $ProviderHeaderQuoted = '[model_providers."' + $ProviderName + '"]'
 $ProviderHeaderBare = '[model_providers.' + $ProviderName + ']'
+$Go2meProviderHeaderQuoted = '[model_providers."go2me"]'
+$Go2meProviderHeaderBare = '[model_providers.go2me]'
 $CleanLines = New-Object System.Collections.Generic.List[string]
 $SkipBlock = $false
 
@@ -187,7 +243,13 @@ foreach ($Line in ($ExistingConfig -split "\\r?\\n")) {
     if (-not $SkipBlock) { continue }
   }
 
-  if ($Line -eq '[features]' -or $Line -eq $ProviderHeaderQuoted -or $Line -eq $ProviderHeaderBare) {
+  if (
+    $Line -eq '[features]' -or
+    $Line -eq $ProviderHeaderQuoted -or
+    $Line -eq $ProviderHeaderBare -or
+    $Line -eq $Go2meProviderHeaderQuoted -or
+    $Line -eq $Go2meProviderHeaderBare
+  ) {
     $SkipBlock = $true
     continue
   }
@@ -205,6 +267,7 @@ $CleanConfig = ($CleanLines -join [Environment]::NewLine).TrimEnd()
 $ProviderConfig = @'
 ${providerConfig}
 '@
+$ProviderConfig = $ProviderConfig.Replace('${CODEX_PROVIDER_PLACEHOLDER}', $ProviderName)
 
 $FinalConfig = if ([string]::IsNullOrWhiteSpace($CleanConfig)) {
   $ProviderConfig
@@ -230,7 +293,7 @@ $Auth | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $AuthFile -Encoding 
 
 Write-Host "Codex config updated: $ConfigFile"
 Write-Host "Codex auth updated: $AuthFile"
-Write-Host "Restart Codex to use ${providerName}."
+Write-Host "Restart Codex to use $ProviderName."
 `
 
   return {
