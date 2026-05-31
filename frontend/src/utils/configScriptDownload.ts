@@ -100,10 +100,14 @@ awk -v provider="\${PROVIDER_NAME}" '
   !skip { print }
 ' "\${CONFIG_FILE}" 2>/dev/null > "\${TMP_CONFIG}" || true
 
-cat >> "\${TMP_CONFIG}" <<'SUB2API_CODEX_CONFIG'
+OLD_CONFIG="$(cat "\${TMP_CONFIG}")"
+cat > "\${TMP_CONFIG}" <<'SUB2API_CODEX_CONFIG'
 
 ${providerConfig}
 SUB2API_CODEX_CONFIG
+if [ -n "\${OLD_CONFIG//[[:space:]]/}" ]; then
+  printf '\n\n%s\n' "\${OLD_CONFIG}" >> "\${TMP_CONFIG}"
+fi
 
 mv "\${TMP_CONFIG}" "\${CONFIG_FILE}"
 
@@ -205,7 +209,7 @@ ${providerConfig}
 $FinalConfig = if ([string]::IsNullOrWhiteSpace($CleanConfig)) {
   $ProviderConfig
 } else {
-  $CleanConfig + [Environment]::NewLine + [Environment]::NewLine + $ProviderConfig
+  $ProviderConfig + [Environment]::NewLine + [Environment]::NewLine + $CleanConfig
 }
 $FinalConfig | Set-Content -LiteralPath $ConfigFile -Encoding UTF8
 

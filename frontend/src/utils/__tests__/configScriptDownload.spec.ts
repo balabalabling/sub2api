@@ -23,6 +23,9 @@ describe('configScriptDownload', () => {
 
     const decodedScript = Buffer.from(encodedCommand!, 'base64').toString('utf16le')
     expect(decodedScript).toContain('model_provider = "go2me"')
+    expect(decodedScript).toContain(
+      '$ProviderConfig + [Environment]::NewLine + [Environment]::NewLine + $CleanConfig'
+    )
     expect(decodedScript).toContain('model_reasoning_effort = "medium"')
     expect(decodedScript).toContain('env_key = "OPENAI_API_KEY"')
     expect(decodedScript).toContain('experimental_bearer_token = "sk-test"')
