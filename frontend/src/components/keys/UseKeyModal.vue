@@ -191,8 +191,7 @@ const downloadScript = () => {
   downloadConfigScript({
     apiKey: props.apiKey,
     baseUrl: props.baseUrl || window.location.origin,
-    platform: props.platform,
-    providerName: props.providerName || 'go2me'
+    platform: props.platform
   })
 }
 

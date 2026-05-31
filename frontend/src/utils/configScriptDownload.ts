@@ -14,6 +14,7 @@ interface DownloadScript {
 }
 
 const CODEX_MODEL = 'gpt-5.5'
+const CODEX_PROVIDER_NAME = 'go2me'
 
 function trimTrailingSlash(value: string): string {
   return value.replace(/\/+$/, '')
@@ -21,16 +22,6 @@ function trimTrailingSlash(value: string): string {
 
 function escapeToml(value: string): string {
   return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
-}
-
-function sanitizeFilenamePart(value: string): string {
-  return value
-    .trim()
-    .replace(/[\\/:*?"<>|]+/g, '-')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-    .toLowerCase()
 }
 
 function buildProviderConfigBlock(baseUrl: string, providerName: string, apiKey: string): string {
@@ -70,7 +61,7 @@ function encodePowerShellCommand(script: string): string {
 
 function buildUnixScript(input: ConfigScriptInput): DownloadScript {
   const baseUrl = trimTrailingSlash(input.baseUrl || window.location.origin)
-  const providerName = sanitizeFilenamePart(input.providerName || 'go2me') || 'go2me'
+  const providerName = CODEX_PROVIDER_NAME
   const providerConfig = buildProviderConfigBlock(baseUrl, providerName, input.apiKey)
 
   return {
@@ -120,7 +111,7 @@ echo "Restart Codex to use ${providerName}."
 
 function buildWindowsScript(input: ConfigScriptInput): DownloadScript {
   const baseUrl = trimTrailingSlash(input.baseUrl || window.location.origin)
-  const providerName = sanitizeFilenamePart(input.providerName || 'go2me') || 'go2me'
+  const providerName = CODEX_PROVIDER_NAME
   const providerConfig = buildProviderConfigBlock(baseUrl, providerName, input.apiKey)
   const powerShellScript = `$ErrorActionPreference = "Stop"
 

@@ -10,7 +10,8 @@ describe('configScriptDownload', () => {
 
     const script = buildConfigScript({
       apiKey: 'sk-test',
-      baseUrl: 'https://api.go2me.vip/v1'
+      baseUrl: 'https://api.go2me.vip/v1',
+      providerName: 'sub2api'
     })
 
     expect(script.filename).toBe('configure-go2me-codex.cmd')
