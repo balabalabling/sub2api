@@ -701,6 +701,8 @@ export default {
     copyToClipboard: '复制到剪贴板',
     copied: '已复制！',
     importToCcSwitch: '导入到 CCS',
+    downloadConfigScript: '配置脚本',
+    configScriptDownloaded: '配置脚本已下载',
     enable: '启用',
     disable: '禁用',
     nameLabel: '名称',

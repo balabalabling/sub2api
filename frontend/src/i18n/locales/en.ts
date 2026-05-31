@@ -702,6 +702,8 @@ export default {
     copyToClipboard: 'Copy to clipboard',
     copied: 'Copied!',
     importToCcSwitch: 'Import to CCS',
+    downloadConfigScript: 'Config Script',
+    configScriptDownloaded: 'Config script downloaded',
     enable: 'Enable',
     disable: 'Disable',
     nameLabel: 'Name',

@@ -121,7 +121,16 @@
     </div>
 
     <template #footer>
-      <div class="flex justify-end">
+      <div class="flex w-full flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <button
+          v-if="platform"
+          @click="downloadScript"
+          class="btn btn-primary"
+        >
+          <Icon name="download" size="md" class="mr-2" />
+          {{ t('keys.downloadConfigScript') }}
+        </button>
+        <div v-else></div>
         <button
           @click="emit('close')"
           class="btn btn-secondary"
@@ -140,12 +149,14 @@ import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { useClipboard } from '@/composables/useClipboard'
 import type { GroupPlatform } from '@/types'
+import { downloadConfigScript } from '@/utils/configScriptDownload'
 
 interface Props {
   show: boolean
   apiKey: string
   baseUrl: string
   platform: GroupPlatform | null
+  providerName?: string
   allowMessagesDispatch?: boolean
 }
 
@@ -175,6 +186,15 @@ const { copyToClipboard: clipboardCopy } = useClipboard()
 const copiedIndex = ref<number | null>(null)
 const activeTab = ref<string>('unix')
 const activeClientTab = ref<string>('claude')
+
+const downloadScript = () => {
+  downloadConfigScript({
+    apiKey: props.apiKey,
+    baseUrl: props.baseUrl || window.location.origin,
+    platform: props.platform,
+    providerName: props.providerName || 'sub2api'
+  })
+}
 
 // Reset tabs when platform changes
 const defaultClientTab = computed(() => {
