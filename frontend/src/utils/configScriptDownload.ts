@@ -44,7 +44,7 @@ function buildCodexConfig(baseUrl: string, providerName: string): string {
   return `model_provider = "${safeProviderName}"
 model = "${CODEX_MODEL}"
 review_model = "${CODEX_MODEL}"
-model_reasoning_effort = "xhigh"
+model_reasoning_effort = "medium"
 disable_response_storage = true
 
 [model_providers."${safeProviderName}"]
@@ -65,9 +65,20 @@ function buildAuthJson(apiKey: string): string {
 `
 }
 
+function encodePowerShellCommand(script: string): string {
+  let binary = ''
+
+  for (let index = 0; index < script.length; index += 1) {
+    const code = script.charCodeAt(index)
+    binary += String.fromCharCode(code & 0xff, code >> 8)
+  }
+
+  return btoa(binary)
+}
+
 function buildUnixScript(input: ConfigScriptInput): DownloadScript {
   const baseUrl = trimTrailingSlash(input.baseUrl || window.location.origin)
-  const providerName = sanitizeFilenamePart(input.providerName || 'sub2api') || 'sub2api'
+  const providerName = sanitizeFilenamePart(input.providerName || 'go2me') || 'go2me'
   const configToml = buildCodexConfig(baseUrl, providerName)
   const authJson = buildAuthJson(input.apiKey)
 
@@ -109,39 +120,56 @@ echo "Restart Codex to use ${providerName}."
 
 function buildWindowsScript(input: ConfigScriptInput): DownloadScript {
   const baseUrl = trimTrailingSlash(input.baseUrl || window.location.origin)
-  const providerName = sanitizeFilenamePart(input.providerName || 'sub2api') || 'sub2api'
+  const providerName = sanitizeFilenamePart(input.providerName || 'go2me') || 'go2me'
   const configToml = buildCodexConfig(baseUrl, providerName)
   const authJson = buildAuthJson(input.apiKey)
+  const powerShellScript = `$ErrorActionPreference = "Stop"
 
-  return {
-    filename: `configure-${providerName}-codex.ps1`,
-    mimeType: 'text/plain;charset=utf-8',
-    content: `$ErrorActionPreference = "Stop"
+$UserProfile = [Environment]::GetFolderPath("UserProfile")
+if ([string]::IsNullOrWhiteSpace($UserProfile)) {
+  $UserProfile = $HOME
+}
 
-$ConfigDir = Join-Path $HOME ".codex"
-$ConfigFile = Join-Path $ConfigDir "config.toml"
-$AuthFile = Join-Path $ConfigDir "auth.json"
+$ConfigDir = Join-Path -Path $UserProfile -ChildPath ".codex"
+$ConfigFile = Join-Path -Path $ConfigDir -ChildPath "config.toml"
+$AuthFile = Join-Path -Path $ConfigDir -ChildPath "auth.json"
 $BackupSuffix = Get-Date -Format "yyyyMMddHHmmss"
 
-New-Item -ItemType Directory -Path $ConfigDir -Force | Out-Null
+New-Item -ItemType Directory -LiteralPath $ConfigDir -Force | Out-Null
 
-if (Test-Path $ConfigFile) {
-  Copy-Item $ConfigFile "$ConfigFile.bak.$BackupSuffix" -Force
+if (Test-Path -LiteralPath $ConfigFile) {
+  Copy-Item -LiteralPath $ConfigFile -Destination "$ConfigFile.bak.$BackupSuffix" -Force
 }
 
-if (Test-Path $AuthFile) {
-  Copy-Item $AuthFile "$AuthFile.bak.$BackupSuffix" -Force
+if (Test-Path -LiteralPath $AuthFile) {
+  Copy-Item -LiteralPath $AuthFile -Destination "$AuthFile.bak.$BackupSuffix" -Force
 }
 
 @'
-${configToml}'@ | Set-Content -Path $ConfigFile -Encoding UTF8
+${configToml}'@ | Set-Content -LiteralPath $ConfigFile -Encoding UTF8
 
 @'
-${authJson}'@ | Set-Content -Path $AuthFile -Encoding UTF8
+${authJson}'@ | Set-Content -LiteralPath $AuthFile -Encoding UTF8
 
 Write-Host "Codex config updated: $ConfigFile"
 Write-Host "Codex auth updated: $AuthFile"
 Write-Host "Restart Codex to use ${providerName}."
+`
+
+  return {
+    filename: `configure-${providerName}-codex.cmd`,
+    mimeType: 'application/x-msdownload;charset=utf-8',
+    content: `@echo off
+powershell.exe -NoProfile -ExecutionPolicy Bypass -EncodedCommand ${encodePowerShellCommand(powerShellScript)}
+if errorlevel 1 (
+  echo.
+  echo Failed to configure Codex.
+  pause
+  exit /b 1
+)
+echo.
+echo Done. You can close this window and restart Codex.
+pause
 `
   }
 }

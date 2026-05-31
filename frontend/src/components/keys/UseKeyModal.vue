@@ -192,7 +192,7 @@ const downloadScript = () => {
     apiKey: props.apiKey,
     baseUrl: props.baseUrl || window.location.origin,
     platform: props.platform,
-    providerName: props.providerName || 'sub2api'
+    providerName: props.providerName || 'go2me'
   })
 }
 
@@ -550,16 +550,16 @@ function generateOpenAIFiles(baseUrl: string, apiKey: string): FileConfig[] {
   const configDir = isWindows ? '%userprofile%\\.codex' : '~/.codex'
 
   // config.toml content
-  const configContent = `model_provider = "OpenAI"
+  const configContent = `model_provider = "go2me"
 model = "gpt-5.5"
 review_model = "gpt-5.5"
-model_reasoning_effort = "xhigh"
+model_reasoning_effort = "medium"
 disable_response_storage = true
 network_access = "enabled"
 windows_wsl_setup_acknowledged = true
 
-[model_providers.OpenAI]
-name = "OpenAI"
+[model_providers.go2me]
+name = "go2me"
 base_url = "${baseUrl}"
 wire_api = "responses"
 requires_openai_auth = true
@@ -590,16 +590,16 @@ function generateOpenAIWsFiles(baseUrl: string, apiKey: string): FileConfig[] {
   const configDir = isWindows ? '%userprofile%\\.codex' : '~/.codex'
 
   // config.toml content with WebSocket v2
-  const configContent = `model_provider = "OpenAI"
+  const configContent = `model_provider = "go2me"
 model = "gpt-5.5"
 review_model = "gpt-5.5"
-model_reasoning_effort = "xhigh"
+model_reasoning_effort = "medium"
 disable_response_storage = true
 network_access = "enabled"
 windows_wsl_setup_acknowledged = true
 
-[model_providers.OpenAI]
-name = "OpenAI"
+[model_providers.go2me]
+name = "go2me"
 base_url = "${baseUrl}"
 wire_api = "responses"
 supports_websockets = true

@@ -38,11 +38,13 @@ describe('UseKeyModal', () => {
     })
 
     const codeBlocks = wrapper.findAll('pre code').map((code) => code.text())
-    const configToml = codeBlocks.find((content) => content.includes('model_provider = "OpenAI"'))
+    const configToml = codeBlocks.find((content) => content.includes('model_provider = "go2me"'))
 
     expect(configToml).toBeDefined()
     expect(configToml).toContain('model = "gpt-5.5"')
     expect(configToml).toContain('review_model = "gpt-5.5"')
+    expect(configToml).toContain('model_reasoning_effort = "medium"')
+    expect(configToml).toContain('[model_providers.go2me]\nname = "go2me"')
     expect(configToml).not.toContain('model = "gpt-5.4"')
     expect(configToml).not.toContain('model_context_window')
     expect(configToml).not.toContain('model_auto_compact_token_limit')
@@ -83,6 +85,8 @@ describe('UseKeyModal', () => {
     expect(configToml).toBeDefined()
     expect(configToml).toContain('model = "gpt-5.5"')
     expect(configToml).toContain('review_model = "gpt-5.5"')
+    expect(configToml).toContain('model_reasoning_effort = "medium"')
+    expect(configToml).toContain('[model_providers.go2me]\nname = "go2me"')
     expect(configToml).not.toContain('model = "gpt-5.4"')
     expect(configToml).not.toContain('model_context_window')
     expect(configToml).not.toContain('model_auto_compact_token_limit')
