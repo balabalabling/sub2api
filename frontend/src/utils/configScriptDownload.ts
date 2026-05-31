@@ -65,6 +65,30 @@ function buildAuthJson(apiKey: string): string {
 `
 }
 
+function buildProviderConfigBlock(baseUrl: string, providerName: string, apiKey: string): string {
+  const safeProviderName = escapeToml(providerName)
+  const safeBaseUrl = escapeToml(baseUrl)
+  const safeApiKey = escapeToml(apiKey)
+
+  return `model_provider = "${safeProviderName}"
+model = "${CODEX_MODEL}"
+review_model = "${CODEX_MODEL}"
+model_reasoning_effort = "medium"
+disable_response_storage = true
+network_access = "enabled"
+windows_wsl_setup_acknowledged = true
+
+[model_providers."${safeProviderName}"]
+name = "${safeProviderName}"
+base_url = "${safeBaseUrl}"
+wire_api = "responses"
+requires_openai_auth = true
+experimental_bearer_token = "${safeApiKey}"
+
+[features]
+web_search_request = true`
+}
+
 function encodePowerShellCommand(script: string): string {
   let binary = ''
 
@@ -79,8 +103,7 @@ function encodePowerShellCommand(script: string): string {
 function buildUnixScript(input: ConfigScriptInput): DownloadScript {
   const baseUrl = trimTrailingSlash(input.baseUrl || window.location.origin)
   const providerName = sanitizeFilenamePart(input.providerName || 'go2me') || 'go2me'
-  const configToml = buildCodexConfig(baseUrl, providerName)
-  const authJson = buildAuthJson(input.apiKey)
+  const providerConfig = buildProviderConfigBlock(baseUrl, providerName, input.apiKey)
 
   return {
     filename: `configure-${providerName}-codex.sh`,
@@ -90,8 +113,8 @@ set -euo pipefail
 
 CONFIG_DIR="\${HOME}/.codex"
 CONFIG_FILE="\${CONFIG_DIR}/config.toml"
-AUTH_FILE="\${CONFIG_DIR}/auth.json"
 BACKUP_SUFFIX="$(date +%Y%m%d%H%M%S)"
+PROVIDER_NAME="${providerName}"
 
 mkdir -p "\${CONFIG_DIR}"
 
@@ -99,20 +122,29 @@ if [ -f "\${CONFIG_FILE}" ]; then
   cp "\${CONFIG_FILE}" "\${CONFIG_FILE}.bak.\${BACKUP_SUFFIX}"
 fi
 
-if [ -f "\${AUTH_FILE}" ]; then
-  cp "\${AUTH_FILE}" "\${AUTH_FILE}.bak.\${BACKUP_SUFFIX}"
-fi
+TMP_CONFIG="\${CONFIG_FILE}.tmp.\${BACKUP_SUFFIX}"
+awk -v provider="\${PROVIDER_NAME}" '
+  BEGIN { skip = 0 }
+  /^model_provider[[:space:]]*=/ || /^model[[:space:]]*=/ || /^review_model[[:space:]]*=/ || /^model_reasoning_effort[[:space:]]*=/ || /^disable_response_storage[[:space:]]*=/ || /^network_access[[:space:]]*=/ || /^windows_wsl_setup_acknowledged[[:space:]]*=/ {
+    if (!skip) next
+  }
+  $0 == "[features]" { skip = 1; next }
+  $0 == ("[model_providers.\"" provider "\"]") || $0 == ("[model_providers." provider "]") { skip = 1; next }
+  /^\[/ { skip = 0 }
+  !skip { print }
+' "\${CONFIG_FILE}" 2>/dev/null > "\${TMP_CONFIG}" || true
 
-cat > "\${CONFIG_FILE}" <<'SUB2API_CODEX_CONFIG'
-${configToml}SUB2API_CODEX_CONFIG
+cat >> "\${TMP_CONFIG}" <<'SUB2API_CODEX_CONFIG'
 
-cat > "\${AUTH_FILE}" <<'SUB2API_CODEX_AUTH'
-${authJson}SUB2API_CODEX_AUTH
+${providerConfig}
+SUB2API_CODEX_CONFIG
 
-chmod 600 "\${CONFIG_FILE}" "\${AUTH_FILE}"
+mv "\${TMP_CONFIG}" "\${CONFIG_FILE}"
+
+chmod 600 "\${CONFIG_FILE}"
 
 echo "Codex config updated: \${CONFIG_FILE}"
-echo "Codex auth updated: \${AUTH_FILE}"
+echo "Codex auth.json was not modified."
 echo "Restart Codex to use ${providerName}."
 `
   }
@@ -121,8 +153,7 @@ echo "Restart Codex to use ${providerName}."
 function buildWindowsScript(input: ConfigScriptInput): DownloadScript {
   const baseUrl = trimTrailingSlash(input.baseUrl || window.location.origin)
   const providerName = sanitizeFilenamePart(input.providerName || 'go2me') || 'go2me'
-  const configToml = buildCodexConfig(baseUrl, providerName)
-  const authJson = buildAuthJson(input.apiKey)
+  const providerConfig = buildProviderConfigBlock(baseUrl, providerName, input.apiKey)
   const powerShellScript = `$ErrorActionPreference = "Stop"
 
 $UserProfile = [Environment]::GetFolderPath("UserProfile")
@@ -132,8 +163,8 @@ if ([string]::IsNullOrWhiteSpace($UserProfile)) {
 
 $ConfigDir = Join-Path -Path $UserProfile -ChildPath ".codex"
 $ConfigFile = Join-Path -Path $ConfigDir -ChildPath "config.toml"
-$AuthFile = Join-Path -Path $ConfigDir -ChildPath "auth.json"
 $BackupSuffix = Get-Date -Format "yyyyMMddHHmmss"
+$ProviderName = "${providerName}"
 
 New-Item -ItemType Directory -Path $ConfigDir -Force | Out-Null
 
@@ -141,18 +172,49 @@ if (Test-Path -LiteralPath $ConfigFile) {
   Copy-Item -LiteralPath $ConfigFile -Destination "$ConfigFile.bak.$BackupSuffix" -Force
 }
 
-if (Test-Path -LiteralPath $AuthFile) {
-  Copy-Item -LiteralPath $AuthFile -Destination "$AuthFile.bak.$BackupSuffix" -Force
+$ExistingConfig = ""
+if (Test-Path -LiteralPath $ConfigFile) {
+  $ExistingConfig = Get-Content -LiteralPath $ConfigFile -Raw -Encoding UTF8
 }
 
-@'
-${configToml}'@ | Set-Content -LiteralPath $ConfigFile -Encoding UTF8
+$ProviderHeaderQuoted = '[model_providers."' + $ProviderName + '"]'
+$ProviderHeaderBare = '[model_providers.' + $ProviderName + ']'
+$CleanLines = New-Object System.Collections.Generic.List[string]
+$SkipBlock = $false
 
-@'
-${authJson}'@ | Set-Content -LiteralPath $AuthFile -Encoding UTF8
+foreach ($Line in ($ExistingConfig -split "\\r?\\n")) {
+  if ($Line -match '^(model_provider|model|review_model|model_reasoning_effort|disable_response_storage|network_access|windows_wsl_setup_acknowledged)\\s*=') {
+    if (-not $SkipBlock) { continue }
+  }
+
+  if ($Line -eq '[features]' -or $Line -eq $ProviderHeaderQuoted -or $Line -eq $ProviderHeaderBare) {
+    $SkipBlock = $true
+    continue
+  }
+
+  if ($Line -match '^\\[') {
+    $SkipBlock = $false
+  }
+
+  if (-not $SkipBlock) {
+    $CleanLines.Add($Line)
+  }
+}
+
+$CleanConfig = ($CleanLines -join [Environment]::NewLine).TrimEnd()
+$ProviderConfig = @'
+${providerConfig}
+'@
+
+$FinalConfig = if ([string]::IsNullOrWhiteSpace($CleanConfig)) {
+  $ProviderConfig
+} else {
+  $CleanConfig + [Environment]::NewLine + [Environment]::NewLine + $ProviderConfig
+}
+$FinalConfig | Set-Content -LiteralPath $ConfigFile -Encoding UTF8
 
 Write-Host "Codex config updated: $ConfigFile"
-Write-Host "Codex auth updated: $AuthFile"
+Write-Host "Codex auth.json was not modified."
 Write-Host "Restart Codex to use ${providerName}."
 `
 

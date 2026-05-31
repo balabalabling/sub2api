@@ -23,10 +23,12 @@ describe('configScriptDownload', () => {
     const decodedScript = Buffer.from(encodedCommand!, 'base64').toString('utf16le')
     expect(decodedScript).toContain('model_provider = "go2me"')
     expect(decodedScript).toContain('model_reasoning_effort = "medium"')
+    expect(decodedScript).toContain('experimental_bearer_token = "sk-test"')
     expect(decodedScript).toContain('[Environment]::GetFolderPath("UserProfile")')
     expect(decodedScript).toContain('New-Item -ItemType Directory -Path $ConfigDir -Force')
+    expect(decodedScript).toContain('Codex auth.json was not modified.')
     expect(decodedScript).toContain('Set-Content -LiteralPath $ConfigFile -Encoding UTF8')
-    expect(decodedScript).toContain('Set-Content -LiteralPath $AuthFile -Encoding UTF8')
+    expect(decodedScript).not.toContain('Set-Content -LiteralPath $AuthFile')
 
     vi.unstubAllGlobals()
   })
