@@ -286,7 +286,8 @@ $FinalConfig = if ([string]::IsNullOrWhiteSpace($CleanConfig)) {
 } else {
   $ProviderConfig + [Environment]::NewLine + [Environment]::NewLine + $CleanConfig + [Environment]::NewLine + [Environment]::NewLine + $FeaturesConfig
 }
-$FinalConfig | Set-Content -LiteralPath $ConfigFile -Encoding UTF8
+$Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+[System.IO.File]::WriteAllText($ConfigFile, $FinalConfig + [Environment]::NewLine, $Utf8NoBom)
 
 $Auth = [ordered]@{}
 if (Test-Path -LiteralPath $AuthFile) {
@@ -301,7 +302,8 @@ if (Test-Path -LiteralPath $AuthFile) {
 }
 $Auth["OPENAI_API_KEY"] = $ApiKey
 $Auth["auth_mode"] = "apikey"
-$Auth | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $AuthFile -Encoding UTF8
+$AuthJson = $Auth | ConvertTo-Json -Depth 20
+[System.IO.File]::WriteAllText($AuthFile, $AuthJson + [Environment]::NewLine, $Utf8NoBom)
 
 Write-Host "Codex config updated: $ConfigFile"
 Write-Host "Codex auth updated: $AuthFile"

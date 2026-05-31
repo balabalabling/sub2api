@@ -36,8 +36,9 @@ describe('configScriptDownload', () => {
     expect(decodedScript).toContain('$Auth["OPENAI_API_KEY"] = $ApiKey')
     expect(decodedScript).toContain('$Auth["auth_mode"] = "apikey"')
     expect(decodedScript).toContain('Codex auth updated: $AuthFile')
-    expect(decodedScript).toContain('Set-Content -LiteralPath $ConfigFile -Encoding UTF8')
-    expect(decodedScript).toContain('Set-Content -LiteralPath $AuthFile -Encoding UTF8')
+    expect(decodedScript).toContain('$Utf8NoBom = New-Object System.Text.UTF8Encoding($false)')
+    expect(decodedScript).toContain('[System.IO.File]::WriteAllText($ConfigFile')
+    expect(decodedScript).toContain('[System.IO.File]::WriteAllText($AuthFile')
 
     vi.unstubAllGlobals()
   })
