@@ -44,9 +44,11 @@ base_url = "${safeBaseUrl}"
 env_key = "OPENAI_API_KEY"
 wire_api = "responses"
 requires_openai_auth = true
-experimental_bearer_token = "${safeApiKey}"
+experimental_bearer_token = "${safeApiKey}"`
+}
 
-[features]
+function buildFeaturesConfigBlock(): string {
+  return `[features]
 web_search_request = true`
 }
 
@@ -65,6 +67,7 @@ function buildUnixScript(input: ConfigScriptInput): DownloadScript {
   const baseUrl = trimTrailingSlash(input.baseUrl || window.location.origin)
   const providerName = CODEX_PROVIDER_NAME
   const providerConfig = buildProviderConfigBlock(baseUrl, CODEX_PROVIDER_PLACEHOLDER, input.apiKey)
+  const featuresConfig = buildFeaturesConfigBlock()
 
   return {
     filename: `configure-${providerName}-codex.sh`,
@@ -134,11 +137,16 @@ PROVIDER_CONFIG="$(cat <<'SUB2API_CODEX_CONFIG'
 ${providerConfig}
 SUB2API_CODEX_CONFIG
 )"
+FEATURES_CONFIG="$(cat <<'SUB2API_CODEX_FEATURES'
+${featuresConfig}
+SUB2API_CODEX_FEATURES
+)"
 PROVIDER_CONFIG="\${PROVIDER_CONFIG//${CODEX_PROVIDER_PLACEHOLDER}/\${PROVIDER_NAME}}"
 printf '%s\n' "\${PROVIDER_CONFIG}" > "\${TMP_CONFIG}"
 if [ -n "\${OLD_CONFIG//[[:space:]]/}" ]; then
   printf '\n\n%s\n' "\${OLD_CONFIG}" >> "\${TMP_CONFIG}"
 fi
+printf '\n\n%s\n' "\${FEATURES_CONFIG}" >> "\${TMP_CONFIG}"
 
 mv "\${TMP_CONFIG}" "\${CONFIG_FILE}"
 
@@ -177,6 +185,7 @@ function buildWindowsScript(input: ConfigScriptInput): DownloadScript {
   const baseUrl = trimTrailingSlash(input.baseUrl || window.location.origin)
   const providerName = CODEX_PROVIDER_NAME
   const providerConfig = buildProviderConfigBlock(baseUrl, CODEX_PROVIDER_PLACEHOLDER, input.apiKey)
+  const featuresConfig = buildFeaturesConfigBlock()
   const powerShellScript = `$ErrorActionPreference = "Stop"
 
 $UserProfile = [Environment]::GetFolderPath("UserProfile")
@@ -268,11 +277,14 @@ $ProviderConfig = @'
 ${providerConfig}
 '@
 $ProviderConfig = $ProviderConfig.Replace('${CODEX_PROVIDER_PLACEHOLDER}', $ProviderName)
+$FeaturesConfig = @'
+${featuresConfig}
+'@
 
 $FinalConfig = if ([string]::IsNullOrWhiteSpace($CleanConfig)) {
-  $ProviderConfig
+  $ProviderConfig + [Environment]::NewLine + [Environment]::NewLine + $FeaturesConfig
 } else {
-  $ProviderConfig + [Environment]::NewLine + [Environment]::NewLine + $CleanConfig
+  $ProviderConfig + [Environment]::NewLine + [Environment]::NewLine + $CleanConfig + [Environment]::NewLine + [Environment]::NewLine + $FeaturesConfig
 }
 $FinalConfig | Set-Content -LiteralPath $ConfigFile -Encoding UTF8
 
@@ -332,3 +344,4 @@ export function downloadConfigScript(input: ConfigScriptInput): void {
   link.remove()
   URL.revokeObjectURL(url)
 }
+
