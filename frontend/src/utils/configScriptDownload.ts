@@ -40,6 +40,7 @@ windows_wsl_setup_acknowledged = true
 [model_providers."${safeProviderName}"]
 name = "${safeProviderName}"
 base_url = "${safeBaseUrl}"
+env_key = "OPENAI_API_KEY"
 wire_api = "responses"
 requires_openai_auth = true
 experimental_bearer_token = "${safeApiKey}"
@@ -72,13 +73,19 @@ set -euo pipefail
 
 CONFIG_DIR="\${HOME}/.codex"
 CONFIG_FILE="\${CONFIG_DIR}/config.toml"
+AUTH_FILE="\${CONFIG_DIR}/auth.json"
 BACKUP_SUFFIX="$(date +%Y%m%d%H%M%S)"
 PROVIDER_NAME="${providerName}"
+API_KEY='${input.apiKey.replace(/'/g, "'\\''")}'
 
 mkdir -p "\${CONFIG_DIR}"
 
 if [ -f "\${CONFIG_FILE}" ]; then
   cp "\${CONFIG_FILE}" "\${CONFIG_FILE}.bak.\${BACKUP_SUFFIX}"
+fi
+
+if [ -f "\${AUTH_FILE}" ]; then
+  cp "\${AUTH_FILE}" "\${AUTH_FILE}.bak.\${BACKUP_SUFFIX}"
 fi
 
 TMP_CONFIG="\${CONFIG_FILE}.tmp.\${BACKUP_SUFFIX}"
@@ -100,10 +107,31 @@ SUB2API_CODEX_CONFIG
 
 mv "\${TMP_CONFIG}" "\${CONFIG_FILE}"
 
-chmod 600 "\${CONFIG_FILE}"
+python3 - "\${AUTH_FILE}" "\${API_KEY}" <<'SUB2API_CODEX_AUTH_PY' || python - "\${AUTH_FILE}" "\${API_KEY}" <<'SUB2API_CODEX_AUTH_PY'
+import json
+import os
+import sys
+
+path, api_key = sys.argv[1], sys.argv[2]
+data = {}
+if os.path.exists(path):
+    try:
+        with open(path, "r", encoding="utf-8-sig") as fh:
+            loaded = json.load(fh)
+            if isinstance(loaded, dict):
+                data = loaded
+    except Exception:
+        data = {}
+data["OPENAI_API_KEY"] = api_key
+with open(path, "w", encoding="utf-8") as fh:
+    json.dump(data, fh, ensure_ascii=False, indent=2)
+    fh.write("\\n")
+SUB2API_CODEX_AUTH_PY
+
+chmod 600 "\${CONFIG_FILE}" "\${AUTH_FILE}"
 
 echo "Codex config updated: \${CONFIG_FILE}"
-echo "Codex auth.json was not modified."
+echo "Codex auth updated: \${AUTH_FILE}"
 echo "Restart Codex to use ${providerName}."
 `
   }
@@ -122,13 +150,21 @@ if ([string]::IsNullOrWhiteSpace($UserProfile)) {
 
 $ConfigDir = Join-Path -Path $UserProfile -ChildPath ".codex"
 $ConfigFile = Join-Path -Path $ConfigDir -ChildPath "config.toml"
+$AuthFile = Join-Path -Path $ConfigDir -ChildPath "auth.json"
 $BackupSuffix = Get-Date -Format "yyyyMMddHHmmss"
 $ProviderName = "${providerName}"
+$ApiKey = @'
+${input.apiKey}
+'@
 
 New-Item -ItemType Directory -Path $ConfigDir -Force | Out-Null
 
 if (Test-Path -LiteralPath $ConfigFile) {
   Copy-Item -LiteralPath $ConfigFile -Destination "$ConfigFile.bak.$BackupSuffix" -Force
+}
+
+if (Test-Path -LiteralPath $AuthFile) {
+  Copy-Item -LiteralPath $AuthFile -Destination "$AuthFile.bak.$BackupSuffix" -Force
 }
 
 $ExistingConfig = ""
@@ -172,8 +208,22 @@ $FinalConfig = if ([string]::IsNullOrWhiteSpace($CleanConfig)) {
 }
 $FinalConfig | Set-Content -LiteralPath $ConfigFile -Encoding UTF8
 
+$Auth = [ordered]@{}
+if (Test-Path -LiteralPath $AuthFile) {
+  try {
+    $ExistingAuth = Get-Content -LiteralPath $AuthFile -Raw -Encoding UTF8 | ConvertFrom-Json
+    foreach ($Property in $ExistingAuth.PSObject.Properties) {
+      $Auth[$Property.Name] = $Property.Value
+    }
+  } catch {
+    $Auth = [ordered]@{}
+  }
+}
+$Auth["OPENAI_API_KEY"] = $ApiKey
+$Auth | ConvertTo-Json -Depth 20 | Set-Content -LiteralPath $AuthFile -Encoding UTF8
+
 Write-Host "Codex config updated: $ConfigFile"
-Write-Host "Codex auth.json was not modified."
+Write-Host "Codex auth updated: $AuthFile"
 Write-Host "Restart Codex to use ${providerName}."
 `
 
