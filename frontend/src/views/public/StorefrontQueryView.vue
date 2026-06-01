@@ -103,7 +103,7 @@ async function queryEmail() {
   try {
     const verify = await storefrontAPI.verifyQueryCode(email.value, code.value)
     const result = await storefrontAPI.queryByEmail(email.value, verify.data.query_token)
-    items.value = result.data.items
+    items.value = Array.isArray(result.data.items) ? result.data.items : []
     message.value = items.value.length ? '' : '没有找到记录。'
   } catch (err: any) {
     message.value = err?.message || '查询失败'
@@ -117,7 +117,7 @@ async function queryKey() {
   message.value = ''
   try {
     const result = await storefrontAPI.queryByKey(apiKey.value)
-    items.value = result.data.items
+    items.value = Array.isArray(result.data.items) ? result.data.items : []
     message.value = items.value.length ? '' : '没有找到记录。'
   } catch (err: any) {
     message.value = err?.message || '查询失败'

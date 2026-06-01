@@ -123,8 +123,13 @@ async function loadProducts() {
   loading.value = true
   try {
     const { data } = await storefrontAPI.listProducts()
-    products.value = data
-    selectedProduct.value = data.find((item) => !isSoldOut(item)) || data[0] || null
+    const list = Array.isArray(data) ? data : []
+    products.value = list
+    selectedProduct.value = list.find((item) => !isSoldOut(item)) || list[0] || null
+  } catch (err: any) {
+    products.value = []
+    selectedProduct.value = null
+    message.value = err?.message || '商品加载失败'
   } finally {
     loading.value = false
   }

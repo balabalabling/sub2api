@@ -179,7 +179,7 @@ WHERE deleted_at IS NULL`
 		return nil, err
 	}
 	defer func() { _ = rows.Close() }()
-	var out []StoreProduct
+	out := make([]StoreProduct, 0)
 	for rows.Next() {
 		p, err := scanStoreProduct(rows)
 		if err != nil {
