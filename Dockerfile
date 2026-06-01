@@ -29,7 +29,7 @@ RUN pnpm install --frozen-lockfile
 
 # Copy frontend source and build
 COPY frontend/ ./
-RUN NODE_OPTIONS=--max-old-space-size=768 pnpm run build
+RUN NODE_OPTIONS=--max-old-space-size=2048 pnpm run build
 
 # -----------------------------------------------------------------------------
 # Stage 2: Backend Builder
