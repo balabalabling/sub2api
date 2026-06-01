@@ -178,7 +178,7 @@ WHERE deleted_at IS NULL`
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	var out []StoreProduct
 	for rows.Next() {
 		p, err := scanStoreProduct(rows)
@@ -425,7 +425,7 @@ func (s *PaymentService) ListStoreUsageByEmail(ctx context.Context, email, token
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	return scanStoreUsageRows(rows)
 }
 
@@ -442,7 +442,7 @@ func (s *PaymentService) ListStoreUsageByKey(ctx context.Context, key string) ([
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 	return scanStoreUsageRows(rows)
 }
 
