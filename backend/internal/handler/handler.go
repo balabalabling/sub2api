@@ -36,6 +36,7 @@ type AdminHandlers struct {
 	ContentModeration      *admin.ContentModerationHandler
 	Payment                *admin.PaymentHandler
 	Affiliate              *admin.AffiliateHandler
+	Store                  *admin.StoreHandler
 }
 
 // Handlers contains all HTTP handlers
@@ -55,6 +56,7 @@ type Handlers struct {
 	Totp             *TotpHandler
 	Payment          *PaymentHandler
 	PaymentWebhook   *PaymentWebhookHandler
+	Storefront       *StorefrontHandler
 	AvailableChannel *AvailableChannelHandler
 }
 

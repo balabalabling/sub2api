@@ -97,6 +97,22 @@ func RegisterAdminRoutes(
 
 		// 邀请返利（专属用户管理）
 		registerAffiliateRoutes(admin, h)
+
+		// 商城商品管理
+		registerStoreRoutes(admin, h)
+	}
+}
+
+func registerStoreRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	store := admin.Group("/store")
+	{
+		products := store.Group("/products")
+		{
+			products.GET("", h.Admin.Store.ListProducts)
+			products.POST("", h.Admin.Store.CreateProduct)
+			products.PUT("/:id", h.Admin.Store.UpdateProduct)
+			products.DELETE("/:id", h.Admin.Store.DeleteProduct)
+		}
 	}
 }
 

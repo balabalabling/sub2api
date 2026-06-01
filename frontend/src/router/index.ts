@@ -166,6 +166,24 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
+    path: '/storefront',
+    name: 'Storefront',
+    component: () => import('@/views/public/StorefrontView.vue'),
+    meta: {
+      requiresAuth: false,
+      title: 'API Key Store'
+    }
+  },
+  {
+    path: '/storefront/query',
+    name: 'StorefrontQuery',
+    component: () => import('@/views/public/StorefrontQueryView.vue'),
+    meta: {
+      requiresAuth: false,
+      title: 'Store Query'
+    }
+  },
+  {
     path: '/legal/:documentId',
     name: 'LegalDocument',
     component: () => import('@/views/public/LegalDocumentView.vue'),
