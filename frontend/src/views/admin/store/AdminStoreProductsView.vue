@@ -17,6 +17,11 @@
         </div>
       </header>
 
+      <section class="rounded-lg border border-primary-100 bg-primary-50 p-4 text-sm text-primary-800 dark:border-primary-900/50 dark:bg-primary-900/20 dark:text-primary-200">
+        <p class="font-semibold">普通商品在这里管理，订阅套餐仍在“支付管理 -> 订阅套餐”管理。</p>
+        <p class="mt-1">商品设置为 active + public 后会显示在公开商城；订阅套餐上架后会自动进入商城，不需要重复写入普通商品。</p>
+      </section>
+
       <section class="flex flex-wrap items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900">
         <input v-model.trim="searchQuery" class="input min-w-56 flex-1" :placeholder="t('admin.store.products.searchPlaceholder')" />
         <select v-model="typeFilter" class="input w-40">
@@ -69,8 +74,10 @@
                 </td>
                 <td class="px-4 py-4">
                   <div class="flex flex-col gap-1">
-                    <span :class="['badge w-fit', statusClass(product.status)]">{{ t(`admin.store.products.statuses.${product.status}`) }}</span>
-                    <span class="text-xs text-gray-500">{{ t(`admin.store.products.visibilities.${product.visibility}`) }}</span>
+                    <span :class="['badge w-fit', storefrontVisibilityClass(product)]">{{ storefrontVisibilityLabel(product) }}</span>
+                    <span class="text-xs text-gray-500">
+                      {{ t(`admin.store.products.statuses.${product.status}`) }} · {{ t(`admin.store.products.visibilities.${product.visibility}`) }}
+                    </span>
                   </div>
                 </td>
                 <td class="px-4 py-4 text-sm text-gray-600 dark:text-gray-300">
@@ -79,7 +86,7 @@
                 <td class="px-4 py-4">
                   <div class="flex items-center justify-end gap-1">
                     <button class="rounded-lg p-1.5 text-gray-500 hover:bg-primary-50 hover:text-primary-600 dark:hover:bg-primary-900/20" :title="toggleTitle(product)" @click="toggleActive(product)">
-                      <Icon :name="product.status === 'active' ? 'eyeOff' : 'eye'" size="sm" />
+                      <Icon :name="isStorefrontVisible(product) ? 'eyeOff' : 'eye'" size="sm" />
                     </button>
                     <button class="rounded-lg p-1.5 text-gray-500 hover:bg-gray-100 hover:text-gray-700 dark:hover:bg-dark-700 dark:hover:text-gray-200" :title="t('common.edit')" @click="openEdit(product)">
                       <Icon name="edit" size="sm" />
@@ -98,110 +105,141 @@
 
     <BaseDialog :show="dialogOpen" :title="editingProduct ? t('admin.store.products.editProduct') : t('admin.store.products.createProduct')" width="wide" @close="closeDialog">
       <form id="store-product-form" class="space-y-5" @submit.prevent="saveProduct">
-        <div class="grid gap-4 md:grid-cols-2">
-          <label class="block">
-            <span class="input-label">{{ t('admin.store.products.fields.productType') }}</span>
-            <select v-model="form.product_type" class="input" @change="applyProductTypeDefaults">
-              <option v-for="type in productTypes" :key="type" :value="type">{{ productTypeLabel(type) }}</option>
-            </select>
-          </label>
-          <label class="block">
-            <span class="input-label">{{ t('admin.store.products.fields.name') }}</span>
-            <input v-model.trim="form.name" class="input" required />
-          </label>
-          <label class="block md:col-span-2">
-            <span class="input-label">{{ t('admin.store.products.fields.description') }}</span>
-            <textarea v-model="form.description" class="input min-h-24" rows="3"></textarea>
-          </label>
-          <label class="block">
-            <span class="input-label">{{ t('admin.store.products.fields.price') }}</span>
-            <input v-model.number="form.price" type="number" min="0.01" step="0.01" class="input" required />
-          </label>
-          <label class="block">
-            <span class="input-label">{{ t('admin.store.products.fields.currency') }}</span>
-            <input v-model.trim="form.currency" class="input uppercase" maxlength="10" />
-          </label>
-          <label class="block">
-            <span class="input-label">{{ t('admin.store.products.fields.status') }}</span>
-            <select v-model="form.status" class="input">
-              <option v-for="status in statuses" :key="status" :value="status">{{ t(`admin.store.products.statuses.${status}`) }}</option>
-            </select>
-          </label>
-          <label class="block">
-            <span class="input-label">{{ t('admin.store.products.fields.visibility') }}</span>
-            <select v-model="form.visibility" class="input">
-              <option value="public">{{ t('admin.store.products.visibilities.public') }}</option>
-              <option value="hidden">{{ t('admin.store.products.visibilities.hidden') }}</option>
-            </select>
-          </label>
-          <label class="block">
-            <span class="input-label">{{ t('admin.store.products.fields.sortOrder') }}</span>
-            <input v-model.number="form.sort_order" type="number" step="1" class="input" />
-          </label>
-          <label class="block">
-            <span class="input-label">{{ t('admin.store.products.fields.deliveryMode') }}</span>
-            <select v-model="form.delivery_mode" class="input">
-              <option value="auto">{{ t('admin.store.products.deliveryModes.auto') }}</option>
-              <option value="manual">{{ t('admin.store.products.deliveryModes.manual') }}</option>
-            </select>
-          </label>
-          <template v-if="form.product_type === 'api_key'">
+        <div class="grid gap-5 lg:grid-cols-[1fr_320px]">
+          <div class="grid gap-4 md:grid-cols-2">
             <label class="block">
-              <span class="input-label">{{ t('admin.store.products.fields.groupId') }}</span>
-              <select v-model.number="apiKeyConfig.group_id" class="input">
-                <option :value="0">{{ t('admin.store.products.noGroup') }}</option>
-                <option v-for="group in groups" :key="group.id" :value="group.id">
-                  {{ group.name }} · {{ group.platform }}
-                </option>
+              <span class="input-label">{{ t('admin.store.products.fields.productType') }}</span>
+              <select v-model="form.product_type" class="input" @change="applyProductTypeDefaults">
+                <option v-for="type in productTypes" :key="type" :value="type">{{ productTypeLabel(type) }}</option>
               </select>
             </label>
             <label class="block">
-              <span class="input-label">{{ t('admin.store.products.fields.quota') }}</span>
-              <input v-model.number="apiKeyConfig.quota" type="number" min="0" step="0.01" class="input" />
+              <span class="input-label">{{ t('admin.store.products.fields.name') }}</span>
+              <input v-model.trim="form.name" class="input" required />
+            </label>
+            <label class="block md:col-span-2">
+              <span class="input-label">{{ t('admin.store.products.fields.description') }}</span>
+              <textarea v-model="form.description" class="input min-h-24" rows="3"></textarea>
             </label>
             <label class="block">
-              <span class="input-label">{{ t('admin.store.products.fields.expiresInDays') }}</span>
-              <input v-model.number="apiKeyConfig.expires_in_days" type="number" min="1" step="1" class="input" />
+              <span class="input-label">{{ t('admin.store.products.fields.price') }}</span>
+              <input v-model.number="form.price" type="number" min="0.01" step="0.01" class="input" required />
             </label>
             <label class="block">
-              <span class="input-label">{{ t('admin.store.products.fields.rateLimit5h') }}</span>
-              <input v-model.number="apiKeyConfig.rate_limit_5h" type="number" min="0" step="1" class="input" />
+              <span class="input-label">{{ t('admin.store.products.fields.currency') }}</span>
+              <input v-model.trim="form.currency" class="input uppercase" maxlength="10" />
             </label>
             <label class="block">
-              <span class="input-label">{{ t('admin.store.products.fields.rateLimit1d') }}</span>
-              <input v-model.number="apiKeyConfig.rate_limit_1d" type="number" min="0" step="1" class="input" />
+              <span class="input-label">{{ t('admin.store.products.fields.status') }}</span>
+              <select v-model="form.status" class="input">
+                <option v-for="status in statuses" :key="status" :value="status">{{ t(`admin.store.products.statuses.${status}`) }}</option>
+              </select>
             </label>
             <label class="block">
-              <span class="input-label">{{ t('admin.store.products.fields.rateLimit7d') }}</span>
-              <input v-model.number="apiKeyConfig.rate_limit_7d" type="number" min="0" step="1" class="input" />
+              <span class="input-label">{{ t('admin.store.products.fields.visibility') }}</span>
+              <select v-model="form.visibility" class="input">
+                <option value="public">{{ t('admin.store.products.visibilities.public') }}</option>
+                <option value="hidden">{{ t('admin.store.products.visibilities.hidden') }}</option>
+              </select>
             </label>
-          </template>
-          <label class="block">
-            <span class="input-label">{{ t('admin.store.products.fields.stockMode') }}</span>
-            <select v-model="form.stock_mode" class="input">
-              <option value="unlimited">{{ t('admin.store.products.stockModes.unlimited') }}</option>
-              <option value="tracked">{{ t('admin.store.products.stockModes.tracked') }}</option>
-            </select>
-          </label>
-          <label class="block">
-            <span class="input-label">{{ t('admin.store.products.fields.stockCount') }}</span>
-            <input v-model.number="form.stock_count" type="number" min="0" step="1" class="input" :disabled="form.stock_mode === 'unlimited'" />
-          </label>
-          <label class="block">
-            <span class="input-label">{{ t('admin.store.products.fields.saleStartAt') }}</span>
-            <input v-model="saleStartLocal" type="datetime-local" class="input" />
-          </label>
-          <label class="block">
-            <span class="input-label">{{ t('admin.store.products.fields.saleEndAt') }}</span>
-            <input v-model="saleEndLocal" type="datetime-local" class="input" />
-          </label>
-          <label class="block md:col-span-2">
-            <span class="input-label">{{ t('admin.store.products.fields.deliveryConfig') }}</span>
-            <textarea v-model="deliveryConfigText" class="input min-h-32 font-mono text-sm" rows="5" spellcheck="false"></textarea>
-            <span class="mt-1 block text-xs text-gray-500">
-              {{ form.product_type === 'api_key' ? t('admin.store.products.deliveryConfigAdvancedHint') : t('admin.store.products.deliveryConfigHint') }}
-            </span>
-          </label>
+            <label class="block">
+              <span class="input-label">{{ t('admin.store.products.fields.sortOrder') }}</span>
+              <input v-model.number="form.sort_order" type="number" step="1" class="input" />
+            </label>
+            <label class="block">
+              <span class="input-label">{{ t('admin.store.products.fields.deliveryMode') }}</span>
+              <select v-model="form.delivery_mode" class="input">
+                <option value="auto">{{ t('admin.store.products.deliveryModes.auto') }}</option>
+                <option value="manual">{{ t('admin.store.products.deliveryModes.manual') }}</option>
+              </select>
+            </label>
+            <template v-if="form.product_type === 'api_key'">
+              <label class="block">
+                <span class="input-label">{{ t('admin.store.products.fields.groupId') }}</span>
+                <select v-model.number="apiKeyConfig.group_id" class="input">
+                  <option :value="0">{{ t('admin.store.products.noGroup') }}</option>
+                  <option v-for="group in groups" :key="group.id" :value="group.id">
+                    {{ group.name }} · {{ group.platform }}
+                  </option>
+                </select>
+              </label>
+              <label class="block">
+                <span class="input-label">{{ t('admin.store.products.fields.quota') }}</span>
+                <input v-model.number="apiKeyConfig.quota" type="number" min="0" step="0.01" class="input" />
+              </label>
+              <label class="block">
+                <span class="input-label">{{ t('admin.store.products.fields.expiresInDays') }}</span>
+                <input v-model.number="apiKeyConfig.expires_in_days" type="number" min="1" step="1" class="input" />
+              </label>
+              <label class="block">
+                <span class="input-label">{{ t('admin.store.products.fields.rateLimit5h') }}</span>
+                <input v-model.number="apiKeyConfig.rate_limit_5h" type="number" min="0" step="1" class="input" />
+              </label>
+              <label class="block">
+                <span class="input-label">{{ t('admin.store.products.fields.rateLimit1d') }}</span>
+                <input v-model.number="apiKeyConfig.rate_limit_1d" type="number" min="0" step="1" class="input" />
+              </label>
+              <label class="block">
+                <span class="input-label">{{ t('admin.store.products.fields.rateLimit7d') }}</span>
+                <input v-model.number="apiKeyConfig.rate_limit_7d" type="number" min="0" step="1" class="input" />
+              </label>
+            </template>
+            <label class="block">
+              <span class="input-label">{{ t('admin.store.products.fields.stockMode') }}</span>
+              <select v-model="form.stock_mode" class="input">
+                <option value="unlimited">{{ t('admin.store.products.stockModes.unlimited') }}</option>
+                <option value="tracked">{{ t('admin.store.products.stockModes.tracked') }}</option>
+              </select>
+            </label>
+            <label class="block">
+              <span class="input-label">{{ t('admin.store.products.fields.stockCount') }}</span>
+              <input v-model.number="form.stock_count" type="number" min="0" step="1" class="input" :disabled="form.stock_mode === 'unlimited'" />
+            </label>
+            <label class="block">
+              <span class="input-label">{{ t('admin.store.products.fields.saleStartAt') }}</span>
+              <input v-model="saleStartLocal" type="datetime-local" class="input" />
+            </label>
+            <label class="block">
+              <span class="input-label">{{ t('admin.store.products.fields.saleEndAt') }}</span>
+              <input v-model="saleEndLocal" type="datetime-local" class="input" />
+            </label>
+            <label class="block md:col-span-2">
+              <span class="input-label">{{ t('admin.store.products.fields.deliveryConfig') }}</span>
+              <textarea v-model="deliveryConfigText" class="input min-h-32 font-mono text-sm" rows="5" spellcheck="false"></textarea>
+              <span class="mt-1 block text-xs text-gray-500">
+                {{ form.product_type === 'api_key' ? t('admin.store.products.deliveryConfigAdvancedHint') : t('admin.store.products.deliveryConfigHint') }}
+              </span>
+            </label>
+          </div>
+          <aside class="rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-dark-700 dark:bg-dark-800">
+            <div class="mb-3 flex items-center justify-between gap-3">
+              <h3 class="text-sm font-bold text-gray-900 dark:text-white">商城卡片预览</h3>
+              <span :class="['rounded-md px-2 py-1 text-xs font-medium', storefrontVisibilityClass(formPreview)]">{{ storefrontVisibilityLabel(formPreview) }}</span>
+            </div>
+            <div class="rounded-lg border border-gray-200 bg-white p-4 dark:border-dark-700 dark:bg-dark-900">
+              <div class="mb-3 flex items-center justify-between gap-2">
+                <span class="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium text-gray-600 dark:bg-dark-800 dark:text-gray-300">{{ productTypeLabel(form.product_type) }}</span>
+                <span v-if="form.stock_mode === 'tracked' && Number(form.stock_count || 0) <= 0" class="text-xs font-medium text-red-500">售罄</span>
+              </div>
+              <h4 class="text-lg font-bold text-gray-900 dark:text-white">{{ form.name || '商品名称' }}</h4>
+              <p class="mt-2 line-clamp-3 min-h-[72px] text-sm leading-6 text-gray-500 dark:text-gray-400">{{ form.description || '商品描述会显示在这里。' }}</p>
+              <dl class="mt-4 grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400">
+                <div>
+                  <dt>交付方式</dt>
+                  <dd>{{ t(`admin.store.products.deliveryModes.${form.delivery_mode}`) }}</dd>
+                </div>
+                <div>
+                  <dt>库存</dt>
+                  <dd>{{ form.stock_mode === 'unlimited' ? t('admin.store.products.stockModes.unlimited') : `${Number(form.stock_count || 0)} 件` }}</dd>
+                </div>
+              </dl>
+              <div class="mt-4 flex items-end justify-between gap-3">
+                <span class="text-2xl font-bold text-primary-600 dark:text-primary-400">{{ formatMoney(form.price, form.currency) }}</span>
+                <span class="rounded-lg bg-primary-50 px-3 py-2 text-sm font-semibold text-primary-700 dark:bg-primary-900/30 dark:text-primary-300">立即购买</span>
+              </div>
+            </div>
+            <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">只有 active + public 的商品会在 /storefront 对用户公开展示。</p>
+          </aside>
         </div>
       </form>
 
@@ -291,6 +329,11 @@ const filteredProducts = computed(() => {
   })
 })
 
+const formPreview = computed(() => ({
+  status: form.status,
+  visibility: form.visibility
+}))
+
 function resetForm() {
   Object.assign(form, {
     product_type: 'api_key' as StoreProductType,
@@ -337,10 +380,18 @@ function productTypeLabel(type: string) {
   return t(`admin.store.products.productTypes.${type}`)
 }
 
-function statusClass(status: StoreProductStatus) {
-  if (status === 'active') return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
-  if (status === 'inactive') return 'bg-gray-100 text-gray-700 dark:bg-dark-700 dark:text-gray-300'
-  return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300'
+function isStorefrontVisible(product: Pick<AdminStoreProduct, 'status' | 'visibility'> | { status: StoreProductStatus; visibility: StoreVisibility }) {
+  return product.status === 'active' && product.visibility === 'public'
+}
+
+function storefrontVisibilityLabel(product: Pick<AdminStoreProduct, 'status' | 'visibility'> | { status: StoreProductStatus; visibility: StoreVisibility }) {
+  return isStorefrontVisible(product) ? '商城可见' : '未公开'
+}
+
+function storefrontVisibilityClass(product: Pick<AdminStoreProduct, 'status' | 'visibility'> | { status: StoreProductStatus; visibility: StoreVisibility }) {
+  return isStorefrontVisible(product)
+    ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300'
+    : 'bg-gray-100 text-gray-700 dark:bg-dark-700 dark:text-gray-300'
 }
 
 function stockLabel(product: AdminStoreProduct) {
@@ -349,7 +400,7 @@ function stockLabel(product: AdminStoreProduct) {
 }
 
 function toggleTitle(product: AdminStoreProduct) {
-  return product.status === 'active' ? t('admin.store.products.unpublish') : t('admin.store.products.publish')
+  return isStorefrontVisible(product) ? t('admin.store.products.unpublish') : t('admin.store.products.publish')
 }
 
 function toLocalInput(value?: string | null) {
@@ -486,9 +537,11 @@ async function saveProduct() {
 }
 
 async function toggleActive(product: AdminStoreProduct) {
+  const willPublish = !isStorefrontVisible(product)
   const payload: AdminStoreProductInput = {
     ...product,
-    status: product.status === 'active' ? 'inactive' : 'active'
+    status: willPublish ? 'active' : 'inactive',
+    visibility: willPublish ? 'public' : product.visibility
   }
   try {
     await adminStoreAPI.updateProduct(product.id, payload)
