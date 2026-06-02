@@ -39,6 +39,10 @@ func (SubscriptionPlan) Fields() []ent.Field {
 			Default(""),
 		field.Float("price").
 			SchemaType(map[string]string{dialect.Postgres: "decimal(20,2)"}),
+		field.Float("key_quota_usd").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}).
+			Default(0).
+			Comment("API key quota delivered by this plan in USD (0 = unlimited)"),
 		field.Float("original_price").
 			SchemaType(map[string]string{dialect.Postgres: "decimal(20,2)"}).
 			Optional().

@@ -20,7 +20,7 @@ export type OrderStatus =
 
 export type PaymentType = 'alipay' | 'wxpay' | 'alipay_direct' | 'wxpay_direct' | 'stripe' | 'easypay' | 'airwallex'
 
-export type OrderType = 'balance' | 'subscription'
+export type OrderType = 'balance' | 'subscription' | 'api_key_recharge'
 
 // ==================== Configuration ====================
 
@@ -96,6 +96,7 @@ export interface PaymentOrder {
   refund_requested_by?: number
   refund_request_reason?: string
   plan_id?: number
+  api_key_id?: number
   provider_instance_id?: string
 }
 
@@ -115,6 +116,7 @@ export interface SubscriptionPlan {
   description: string
   price: number
   original_price?: number
+  key_quota_usd: number
   validity_days: number
   validity_unit: string
   /** Stored as JSON string in backend; API layer should parse before use */
@@ -158,6 +160,7 @@ export interface CreateOrderRequest {
   payment_type: string
   order_type: string
   plan_id?: number
+  api_key_id?: number
   return_url?: string
   payment_source?: string
   openid?: string

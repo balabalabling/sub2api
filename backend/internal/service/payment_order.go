@@ -12,6 +12,7 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	"github.com/Wei-Shaw/sub2api/internal/payment/provider"
@@ -116,7 +117,7 @@ func (s *PaymentService) validateOrderInput(ctx context.Context, req CreateOrder
 	if req.OrderType == payment.OrderTypeBalance && cfg.BalanceDisabled {
 		return nil, infraerrors.Forbidden("BALANCE_PAYMENT_DISABLED", "balance recharge has been disabled")
 	}
-	if req.OrderType == payment.OrderTypeSubscription {
+	if req.OrderType == payment.OrderTypeSubscription || req.OrderType == payment.OrderTypeAPIKeyRecharge {
 		return s.validateSubOrder(ctx, req)
 	}
 	if math.IsNaN(req.Amount) || math.IsInf(req.Amount, 0) || req.Amount <= 0 {
@@ -143,6 +144,20 @@ func (s *PaymentService) validateSubOrder(ctx context.Context, req CreateOrderRe
 	}
 	if !group.IsSubscriptionType() {
 		return nil, infraerrors.BadRequest("GROUP_TYPE_MISMATCH", "group is not a subscription type")
+	}
+	if req.OrderType == payment.OrderTypeAPIKeyRecharge {
+		if req.APIKeyID <= 0 {
+			return nil, infraerrors.BadRequest("INVALID_INPUT", "api key recharge requires an api key")
+		}
+		exists, err := s.entClient.APIKey.Query().
+			Where(apikey.IDEQ(req.APIKeyID), apikey.UserIDEQ(req.UserID), apikey.DeletedAtIsNil()).
+			Exist(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("check api key ownership: %w", err)
+		}
+		if !exists {
+			return nil, infraerrors.NotFound("API_KEY_NOT_FOUND", "api key not found")
+		}
 	}
 	return plan, nil
 }
@@ -206,6 +221,9 @@ func (s *PaymentService) createOrderInTx(ctx context.Context, req CreateOrderReq
 	}
 	if plan != nil {
 		b.SetPlanID(plan.ID).SetSubscriptionGroupID(plan.GroupID).SetSubscriptionDays(psComputeValidityDays(plan.ValidityDays, plan.ValidityUnit))
+	}
+	if req.APIKeyID > 0 {
+		b.SetAPIKeyID(req.APIKeyID)
 	}
 	order, err := b.Save(ctx)
 	if err != nil {
@@ -716,6 +734,9 @@ func buildWeChatPaymentOAuthStartURL(req CreateOrderRequest, scope string) (stri
 	}
 	if req.PlanID > 0 {
 		q.Set("plan_id", strconv.FormatInt(req.PlanID, 10))
+	}
+	if req.APIKeyID > 0 {
+		q.Set("api_key_id", strconv.FormatInt(req.APIKeyID, 10))
 	}
 	if scope = strings.TrimSpace(scope); scope != "" {
 		q.Set("scope", scope)

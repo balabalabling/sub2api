@@ -121,6 +121,10 @@
                       <span :class="['text-lg font-bold', planTextClass]">×{{ selectedPlan.rate_multiplier ?? 1 }}</span>
                     </div>
                   </div>
+                  <div>
+                    <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.keyQuota') }}</span>
+                    <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ selectedPlanKeyQuotaDisplay }}</div>
+                  </div>
                   <div v-if="selectedPlan.daily_limit_usd != null">
                     <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.dailyLimit') }}</span>
                     <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">${{ selectedPlan.daily_limit_usd }}</div>
@@ -137,6 +141,38 @@
                     <span class="text-xs text-gray-400 dark:text-gray-500">{{ t('payment.planCard.quota') }}</span>
                     <div class="text-lg font-semibold text-gray-800 dark:text-gray-200">{{ t('payment.planCard.unlimited') }}</div>
                   </div>
+                </div>
+              </div>
+              <div class="card p-5">
+                <p class="mb-3 text-sm font-medium text-gray-700 dark:text-gray-300">{{ t('payment.keyDeliveryMode') }}</p>
+                <div class="grid grid-cols-2 gap-2 rounded-xl bg-gray-100 p-1 dark:bg-dark-700">
+                  <button
+                    type="button"
+                    class="rounded-lg px-3 py-2 text-sm font-medium transition-all"
+                    :class="subscriptionMode === 'new_key' ? 'bg-white text-gray-900 shadow dark:bg-dark-800 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'"
+                    @click="subscriptionMode = 'new_key'"
+                  >
+                    {{ t('payment.generateNewKey') }}
+                  </button>
+                  <button
+                    type="button"
+                    class="rounded-lg px-3 py-2 text-sm font-medium transition-all"
+                    :class="subscriptionMode === 'recharge_key' ? 'bg-white text-gray-900 shadow dark:bg-dark-800 dark:text-white' : 'text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300'"
+                    @click="subscriptionMode = 'recharge_key'"
+                  >
+                    {{ t('payment.rechargeExistingKey') }}
+                  </button>
+                </div>
+                <div v-if="subscriptionMode === 'recharge_key'" class="mt-4">
+                  <label class="input-label">{{ t('payment.selectApiKey') }}</label>
+                  <select v-model.number="selectedRechargeKeyId" class="input" :disabled="matchingRechargeKeys.length === 0">
+                    <option v-for="key in matchingRechargeKeys" :key="key.id" :value="key.id">
+                      {{ key.name }} #{{ key.id }} · {{ formatKeyQuota(key) }} · {{ formatKeyExpiry(key) }}
+                    </option>
+                  </select>
+                  <p v-if="matchingRechargeKeys.length === 0" class="mt-2 text-xs text-amber-600 dark:text-amber-300">
+                    {{ t('payment.noMatchingApiKey') }}
+                  </p>
                 </div>
               </div>
               <div v-if="enabledMethods.length >= 1" class="card p-6">
@@ -253,9 +289,11 @@ import { usePaymentStore } from '@/stores/payment'
 import { useSubscriptionStore } from '@/stores/subscriptions'
 import { useAppStore } from '@/stores'
 import { paymentAPI } from '@/api/payment'
+import keysAPI from '@/api/keys'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
 import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType } from '@/types/payment'
+import type { ApiKey } from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import AmountInput from '@/components/payment/AmountInput.vue'
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector.vue'
@@ -305,6 +343,9 @@ const activeTab = ref<'recharge' | 'subscription'>('recharge')
 const amount = ref<number | null>(null)
 const selectedMethod = ref('')
 const selectedPlan = ref<SubscriptionPlan | null>(null)
+const subscriptionMode = ref<'new_key' | 'recharge_key'>('new_key')
+const rechargeKeys = ref<ApiKey[]>([])
+const selectedRechargeKeyId = ref<number | null>(null)
 const previewImage = ref('')
 
 const paymentPhase = ref<'select' | 'paying'>('select')
@@ -313,6 +354,7 @@ interface CreateOrderOptions {
   openid?: string
   wechatResumeToken?: string
   paymentType?: string
+  apiKeyId?: number
   isResume?: boolean
   mobileQrFallbackAttempted?: boolean
 }
@@ -419,7 +461,7 @@ async function redirectToPaymentResult(state: PaymentRecoverySnapshot): Promise<
 
 function buildWechatOAuthAuthorizeUrl(
   authorizeUrl: string,
-  context: { paymentType: string; orderType: OrderType; planId?: number; orderAmount: number },
+  context: { paymentType: string; orderType: OrderType; planId?: number; apiKeyId?: number; orderAmount: number },
 ): string {
   const normalizedUrl = authorizeUrl.trim()
   if (!normalizedUrl || typeof window === 'undefined') {
@@ -441,6 +483,12 @@ function buildWechatOAuthAuthorizeUrl(
       redirectUrl.searchParams.delete('plan_id')
     }
 
+    if (context.apiKeyId) {
+      redirectUrl.searchParams.set('api_key_id', String(context.apiKeyId))
+    } else {
+      redirectUrl.searchParams.delete('api_key_id')
+    }
+
     if (context.orderAmount > 0) {
       redirectUrl.searchParams.set('amount', String(context.orderAmount))
     } else {
@@ -455,19 +503,21 @@ function buildWechatOAuthAuthorizeUrl(
 }
 
 function onPaymentDone() {
-  const wasSubscription = paymentState.value.orderType === 'subscription'
+  const wasSubscription = paymentState.value.orderType === 'subscription' || paymentState.value.orderType === 'api_key_recharge'
   resetPayment()
   selectedPlan.value = null
   if (wasSubscription) {
     subscriptionStore.fetchActiveSubscriptions(true).catch(() => {})
+    loadRechargeKeys().catch(() => {})
   }
 }
 
 function onPaymentSuccess() {
   removeRecoverySnapshot()
   authStore.refreshUser()
-  if (paymentState.value.orderType === 'subscription') {
+  if (paymentState.value.orderType === 'subscription' || paymentState.value.orderType === 'api_key_recharge') {
     subscriptionStore.fetchActiveSubscriptions(true).catch(() => {})
+    loadRechargeKeys().catch(() => {})
   }
 }
 
@@ -613,10 +663,17 @@ const subTotalAmount = computed(() => {
   return Math.round((price + subFeeAmount.value) * 100) / 100
 })
 
+const matchingRechargeKeys = computed(() => {
+  const groupId = selectedPlan.value?.group_id
+  if (!groupId) return []
+  return rechargeKeys.value.filter(key => key.group_id === groupId)
+})
+
 const canSubmitSubscription = computed(() =>
   selectedPlan.value !== null
     && amountFitsMethod(selectedPlan.value.price, selectedMethod.value)
     && selectedLimit.value?.available !== false
+    && (subscriptionMode.value === 'new_key' || selectedRechargeKeyId.value !== null)
 )
 
 // Auto-switch to first available method when current selection can't handle the amount
@@ -641,6 +698,11 @@ const paymentButtonClass = computed(() => {
 const planBadgeClass = computed(() => platformBadgeClass(selectedPlan.value?.group_platform || ''))
 const planTextClass = computed(() => platformTextClass(selectedPlan.value?.group_platform || ''))
 
+const selectedPlanKeyQuotaDisplay = computed(() => {
+  const quota = selectedPlan.value?.key_quota_usd || 0
+  return quota > 0 ? `$${Number(quota.toFixed(2))}` : t('payment.planCard.unlimited')
+})
+
 // Renewal modal state
 const showRenewalModal = ref(false)
 const renewGroupId = ref<number | null>(null)
@@ -659,6 +721,7 @@ const planValiditySuffix = computed(() => {
 
 function selectPlan(plan: SubscriptionPlan) {
   selectedPlan.value = plan
+  subscriptionMode.value = 'new_key'
   errorMessage.value = ''
 }
 
@@ -666,6 +729,7 @@ function selectPlanFromModal(plan: SubscriptionPlan) {
   showRenewalModal.value = false
   renewGroupId.value = null
   selectedPlan.value = plan
+  subscriptionMode.value = 'new_key'
   errorMessage.value = ''
 }
 
@@ -681,7 +745,9 @@ async function handleSubmitRecharge() {
 
 async function confirmSubscribe() {
   if (!selectedPlan.value || submitting.value) return
-  await createOrder(selectedPlan.value.price, 'subscription', selectedPlan.value.id)
+  const apiKeyId = subscriptionMode.value === 'recharge_key' ? selectedRechargeKeyId.value || undefined : undefined
+  const orderType: OrderType = apiKeyId ? 'api_key_recharge' : 'subscription'
+  await createOrder(selectedPlan.value.price, orderType, selectedPlan.value.id, { apiKeyId })
 }
 
 async function createOrder(orderAmount: number, orderType: OrderType, planId?: number, options: CreateOrderOptions = {}) {
@@ -695,6 +761,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
       paymentType: requestType,
       orderType,
       planId,
+      apiKeyId: options.apiKeyId,
       origin: typeof window !== 'undefined' ? window.location.origin : '',
       isMobile: isMobileDevice(),
       isWechatBrowser: typeof window !== 'undefined' && /MicroMessenger/i.test(window.navigator.userAgent),
@@ -757,6 +824,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
         paymentType: visibleMethod,
         orderType,
         planId,
+        apiKeyId: options.apiKeyId,
         orderAmount,
       })
       return
@@ -798,6 +866,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
               orderAmount,
               orderType,
               planId,
+              apiKeyId: options.apiKeyId,
               paymentType: visibleMethod,
               attempted: options.mobileQrFallbackAttempted === true,
             },
@@ -816,6 +885,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
           orderAmount,
           orderType,
           planId,
+          apiKeyId: options.apiKeyId,
           paymentType: visibleMethod,
           attempted: options.mobileQrFallbackAttempted === true,
         })
@@ -845,6 +915,7 @@ async function createOrder(orderAmount: number, orderType: OrderType, planId?: n
       orderAmount,
       orderType,
       planId,
+      apiKeyId: options.apiKeyId,
       paymentType: requestType,
       attempted: options.mobileQrFallbackAttempted === true,
     })) {
@@ -872,6 +943,7 @@ interface MobileQrFallbackContext {
   orderAmount: number
   orderType: OrderType
   planId?: number
+  apiKeyId?: number
   paymentType: string
   attempted: boolean
 }
@@ -921,6 +993,7 @@ async function attemptMobileQrFallback(err: unknown, context: MobileQrFallbackCo
       paymentType: visibleMethod,
       orderType: context.orderType,
       planId: context.planId,
+      apiKeyId: context.apiKeyId,
       origin: typeof window !== 'undefined' ? window.location.origin : '',
       isMobile: false,
       isWechatBrowser: false,
@@ -993,6 +1066,11 @@ async function resumeWechatPaymentFromQuery() {
   if (resume.orderType === 'subscription' && resume.planId) {
     selectedPlan.value = checkout.value.plans.find(plan => plan.id === resume.planId) ?? null
   }
+  if (resume.orderType === 'api_key_recharge' && resume.planId) {
+    selectedPlan.value = checkout.value.plans.find(plan => plan.id === resume.planId) ?? null
+    subscriptionMode.value = 'recharge_key'
+    selectedRechargeKeyId.value = resume.apiKeyId ?? null
+  }
 
   await router.replace({ path: route.path, query: stripWechatResumeQuery(route.query) })
 
@@ -1000,6 +1078,7 @@ async function resumeWechatPaymentFromQuery() {
     await createOrder(0, resume.orderType, resume.planId, {
       wechatResumeToken: resume.wechatResumeToken,
       paymentType: resume.paymentType,
+      apiKeyId: resume.apiKeyId,
       isResume: true,
     })
     return
@@ -1009,10 +1088,41 @@ async function resumeWechatPaymentFromQuery() {
     await createOrder(resume.orderAmount, resume.orderType, resume.planId, {
       openid: resume.openid,
       paymentType: resume.paymentType,
+      apiKeyId: resume.apiKeyId,
       isResume: true,
     })
   }
 }
+
+async function loadRechargeKeys() {
+  const res = await keysAPI.list(1, 200, { sort_by: 'created_at', sort_order: 'desc' })
+  rechargeKeys.value = res.items || []
+}
+
+function formatKeyQuota(key: ApiKey): string {
+  if (!key.quota || key.quota <= 0) return t('payment.planCard.unlimited')
+  const remaining = Math.max(0, key.quota - (key.quota_used || 0))
+  return `$${remaining.toFixed(2)} / $${key.quota.toFixed(2)}`
+}
+
+function formatKeyExpiry(key: ApiKey): string {
+  if (!key.expires_at) return t('userSubscriptions.noExpiration')
+  return new Date(key.expires_at).toLocaleDateString()
+}
+
+watch([selectedPlan, matchingRechargeKeys], () => {
+  if (subscriptionMode.value !== 'recharge_key') return
+  if (selectedRechargeKeyId.value && matchingRechargeKeys.value.some(key => key.id === selectedRechargeKeyId.value)) {
+    return
+  }
+  selectedRechargeKeyId.value = matchingRechargeKeys.value[0]?.id ?? null
+})
+
+watch(subscriptionMode, (mode) => {
+  if (mode === 'recharge_key') {
+    selectedRechargeKeyId.value = matchingRechargeKeys.value[0]?.id ?? null
+  }
+})
 
 onMounted(async () => {
   try {
@@ -1051,6 +1161,7 @@ onMounted(async () => {
         removeRecoverySnapshot()
       }
     }
+    await loadRechargeKeys()
     await resumeWechatPaymentFromQuery()
     if (checkout.value.balance_disabled) {
       activeTab.value = 'subscription'

@@ -2,6 +2,8 @@ package service
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,8 +14,10 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
@@ -25,6 +29,14 @@ import (
 // retrying forever (e.g. when a foreign environment's webhook endpoint is
 // misconfigured to point at us, or when our orders table has been wiped).
 var ErrOrderNotFound = errors.New("payment order not found")
+
+func generatePaymentAPIKey() (string, error) {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("generate api key: %w", err)
+	}
+	return "sk-" + hex.EncodeToString(b), nil
+}
 
 // --- Payment Notification & Fulfillment ---
 
@@ -217,6 +229,9 @@ func (s *PaymentService) executeFulfillment(ctx context.Context, oid int64) erro
 	}
 	if o.OrderType == payment.OrderTypeSubscription {
 		return s.ExecuteSubscriptionFulfillment(ctx, oid)
+	}
+	if o.OrderType == payment.OrderTypeAPIKeyRecharge {
+		return s.ExecuteAPIKeyRechargeFulfillment(ctx, oid)
 	}
 	return s.ExecuteBalanceFulfillment(ctx, oid)
 }
@@ -438,12 +453,163 @@ func (s *PaymentService) doSub(ctx context.Context, o *dbent.PaymentOrder) error
 		slog.Info("subscription already assigned for order, skipping", "orderID", o.ID, "groupID", gid)
 		return s.markCompleted(ctx, o, "SUBSCRIPTION_SUCCESS")
 	}
+	if o.APIKeyID != nil {
+		slog.Info("api key already generated for subscription order, skipping", "orderID", o.ID, "apiKeyID", *o.APIKeyID)
+		return s.markCompleted(ctx, o, "SUBSCRIPTION_SUCCESS")
+	}
 	orderNote := fmt.Sprintf("payment order %d", o.ID)
-	_, _, err = s.subscriptionSvc.AssignOrExtendSubscription(ctx, &AssignSubscriptionInput{UserID: o.UserID, GroupID: gid, ValidityDays: days, AssignedBy: 0, Notes: orderNote})
+	sub, _, err := s.subscriptionSvc.AssignOrExtendSubscription(ctx, &AssignSubscriptionInput{UserID: o.UserID, GroupID: gid, ValidityDays: days, AssignedBy: 0, Notes: orderNote})
 	if err != nil {
 		return fmt.Errorf("assign subscription: %w", err)
 	}
+	plan, err := s.planForOrder(ctx, o)
+	if err != nil {
+		return err
+	}
+	keyID, err := s.createPlanAPIKey(ctx, o, plan, sub.ExpiresAt)
+	if err != nil {
+		return err
+	}
+	if _, err := s.entClient.PaymentOrder.UpdateOneID(o.ID).SetAPIKeyID(keyID).Save(ctx); err != nil {
+		return fmt.Errorf("attach generated api key to order: %w", err)
+	}
 	return s.markCompleted(ctx, o, "SUBSCRIPTION_SUCCESS")
+}
+
+func (s *PaymentService) ExecuteAPIKeyRechargeFulfillment(ctx context.Context, oid int64) error {
+	o, err := s.entClient.PaymentOrder.Get(ctx, oid)
+	if err != nil {
+		return infraerrors.NotFound("NOT_FOUND", "order not found")
+	}
+	if o.Status == OrderStatusCompleted {
+		return nil
+	}
+	if psIsRefundStatus(o.Status) {
+		return infraerrors.BadRequest("INVALID_STATUS", "refund-related order cannot fulfill")
+	}
+	if o.Status != OrderStatusPaid && o.Status != OrderStatusFailed {
+		return infraerrors.BadRequest("INVALID_STATUS", "order cannot fulfill in status "+o.Status)
+	}
+	if o.APIKeyID == nil || o.SubscriptionGroupID == nil || o.SubscriptionDays == nil {
+		return infraerrors.BadRequest("INVALID_STATUS", "missing api key recharge info")
+	}
+	c, err := s.entClient.PaymentOrder.Update().Where(paymentorder.IDEQ(oid), paymentorder.StatusIn(OrderStatusPaid, OrderStatusFailed)).SetStatus(OrderStatusRecharging).Save(ctx)
+	if err != nil {
+		return fmt.Errorf("lock: %w", err)
+	}
+	if c == 0 {
+		return nil
+	}
+	if err := s.doAPIKeyRecharge(ctx, o); err != nil {
+		s.markFailed(ctx, oid, err)
+		return err
+	}
+	return nil
+}
+
+func (s *PaymentService) doAPIKeyRecharge(ctx context.Context, o *dbent.PaymentOrder) error {
+	if s.hasAuditLog(ctx, o.ID, "API_KEY_RECHARGED") {
+		slog.Info("api key recharge already applied for order, skipping", "orderID", o.ID, "apiKeyID", *o.APIKeyID)
+		return s.markCompleted(ctx, o, "API_KEY_RECHARGE_SUCCESS")
+	}
+	plan, err := s.planForOrder(ctx, o)
+	if err != nil {
+		return err
+	}
+	if err := s.rechargePlanAPIKey(ctx, o, plan); err != nil {
+		return err
+	}
+	return s.markCompleted(ctx, o, "API_KEY_RECHARGE_SUCCESS")
+}
+
+func (s *PaymentService) planForOrder(ctx context.Context, o *dbent.PaymentOrder) (*dbent.SubscriptionPlan, error) {
+	if o.PlanID == nil {
+		return nil, infraerrors.BadRequest("INVALID_STATUS", "missing subscription plan")
+	}
+	plan, err := s.entClient.SubscriptionPlan.Query().Where(subscriptionplan.IDEQ(*o.PlanID)).Only(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("get subscription plan: %w", err)
+	}
+	return plan, nil
+}
+
+func (s *PaymentService) createPlanAPIKey(ctx context.Context, o *dbent.PaymentOrder, plan *dbent.SubscriptionPlan, expiresAt time.Time) (int64, error) {
+	key, err := generatePaymentAPIKey()
+	if err != nil {
+		return 0, err
+	}
+	name := strings.TrimSpace(plan.Name)
+	if name == "" {
+		name = "Subscription API Key"
+	}
+	name = name + " #" + strconv.FormatInt(o.ID, 10)
+	created, err := s.entClient.APIKey.Create().
+		SetUserID(o.UserID).
+		SetKey(key).
+		SetName(name).
+		SetGroupID(plan.GroupID).
+		SetStatus(StatusActive).
+		SetQuota(plan.KeyQuotaUsd).
+		SetQuotaUsed(0).
+		SetExpiresAt(expiresAt).
+		Save(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("create api key: %w", err)
+	}
+	if s.apiKeyCacheInvalidator != nil {
+		s.apiKeyCacheInvalidator.InvalidateAuthCacheByKey(ctx, key)
+		s.apiKeyCacheInvalidator.InvalidateAuthCacheByUserID(ctx, o.UserID)
+	}
+	s.writeAuditLog(ctx, o.ID, "API_KEY_CREATED", "system", map[string]any{
+		"api_key_id": created.ID,
+		"quota_usd":  plan.KeyQuotaUsd,
+		"expires_at": expiresAt,
+	})
+	return created.ID, nil
+}
+
+func (s *PaymentService) rechargePlanAPIKey(ctx context.Context, o *dbent.PaymentOrder, plan *dbent.SubscriptionPlan) error {
+	key, err := s.entClient.APIKey.Query().
+		Where(apikey.IDEQ(*o.APIKeyID), apikey.UserIDEQ(o.UserID), apikey.DeletedAtIsNil()).
+		Only(ctx)
+	if err != nil {
+		return fmt.Errorf("get api key: %w", err)
+	}
+	if key.GroupID == nil || *key.GroupID != plan.GroupID {
+		return infraerrors.BadRequest("API_KEY_GROUP_MISMATCH", "api key group does not match plan group")
+	}
+	now := time.Now()
+	targetExpiry := now.AddDate(0, 0, psComputeValidityDays(plan.ValidityDays, plan.ValidityUnit))
+	if key.ExpiresAt != nil && key.ExpiresAt.After(targetExpiry) {
+		targetExpiry = *key.ExpiresAt
+	}
+	nextQuota := key.Quota
+	if nextQuota > 0 || plan.KeyQuotaUsd > 0 {
+		nextQuota += plan.KeyQuotaUsd
+	}
+	updated, err := s.entClient.APIKey.Update().
+		Where(apikey.IDEQ(key.ID), apikey.UserIDEQ(o.UserID), apikey.DeletedAtIsNil()).
+		SetQuota(nextQuota).
+		SetExpiresAt(targetExpiry).
+		SetStatus(StatusActive).
+		Save(ctx)
+	if err != nil {
+		return fmt.Errorf("update api key quota: %w", err)
+	}
+	if updated == 0 {
+		return infraerrors.NotFound("API_KEY_NOT_FOUND", "api key not found")
+	}
+	if s.apiKeyCacheInvalidator != nil {
+		s.apiKeyCacheInvalidator.InvalidateAuthCacheByKey(ctx, key.Key)
+		s.apiKeyCacheInvalidator.InvalidateAuthCacheByUserID(ctx, o.UserID)
+	}
+	s.writeAuditLog(ctx, o.ID, "API_KEY_RECHARGED", "system", map[string]any{
+		"api_key_id": key.ID,
+		"quota_usd":  plan.KeyQuotaUsd,
+		"new_quota":  nextQuota,
+		"expires_at": targetExpiry,
+	})
+	return nil
 }
 
 func (s *PaymentService) hasAuditLog(ctx context.Context, orderID int64, action string) bool {
