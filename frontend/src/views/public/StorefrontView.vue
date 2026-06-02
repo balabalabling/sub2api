@@ -4,11 +4,20 @@
       <header class="mb-6 overflow-hidden rounded-2xl border border-white/70 bg-white/85 p-6 shadow-sm dark:border-dark-700 dark:bg-dark-900/90 sm:p-8">
         <div class="grid gap-6 lg:grid-cols-[1fr_340px] lg:items-center">
           <div>
-            <div class="mb-4 flex flex-wrap items-center gap-2">
+            <div class="mb-5 flex flex-wrap items-center gap-3">
+              <div class="flex items-center gap-3">
+                <div class="grid h-12 w-12 place-items-center rounded-xl bg-slate-950 text-lg font-black text-white shadow-sm dark:bg-white dark:text-slate-950">
+                  G2
+                </div>
+                <div>
+                  <div class="text-2xl font-black leading-none tracking-normal text-slate-950 dark:text-white">Go2Me</div>
+                  <div class="mt-1 text-xs font-semibold uppercase text-emerald-700 dark:text-emerald-300">Official Store</div>
+                </div>
+              </div>
               <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">官方商城</span>
               <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 dark:bg-dark-800 dark:text-slate-300">订阅套餐 / API Key / 人工商品</span>
             </div>
-            <h1 class="text-3xl font-extrabold tracking-normal text-slate-950 dark:text-white sm:text-4xl">Code With AI Store</h1>
+            <h1 class="text-3xl font-extrabold tracking-normal text-slate-950 dark:text-white sm:text-4xl">Go2Me AI 服务商城</h1>
             <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-500 dark:text-gray-400">
               {{ t('storefront.description') }} 支付后可在订单查询中心查看交付状态、API Key、额度用量，并下载安装与配置脚本。
             </p>
