@@ -1,16 +1,45 @@
 <template>
-  <div class="min-h-screen bg-gray-50 text-gray-900 dark:bg-dark-950 dark:text-white">
+  <div class="min-h-screen bg-[#f6f9f7] text-slate-800 dark:bg-dark-950 dark:text-white">
     <main class="mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:px-8">
-      <header class="mb-8 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div>
-          <h1 class="text-3xl font-bold tracking-normal">API Key Store</h1>
-          <p class="mt-2 max-w-2xl text-sm text-gray-500 dark:text-gray-400">
-            {{ t('storefront.description') }}
-          </p>
+      <header class="mb-6 overflow-hidden rounded-2xl border border-white/70 bg-white/85 p-6 shadow-sm dark:border-dark-700 dark:bg-dark-900/90 sm:p-8">
+        <div class="grid gap-6 lg:grid-cols-[1fr_340px] lg:items-center">
+          <div>
+            <div class="mb-4 flex flex-wrap items-center gap-2">
+              <span class="rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">官方商城</span>
+              <span class="rounded-full bg-slate-100 px-3 py-1 text-xs font-bold text-slate-600 dark:bg-dark-800 dark:text-slate-300">订阅套餐 / API Key / 人工商品</span>
+            </div>
+            <h1 class="text-3xl font-extrabold tracking-normal text-slate-950 dark:text-white sm:text-4xl">Code With AI Store</h1>
+            <p class="mt-3 max-w-2xl text-sm leading-6 text-slate-500 dark:text-gray-400">
+              {{ t('storefront.description') }} 支付后可在订单查询中心查看交付状态、API Key、额度用量，并下载安装与配置脚本。
+            </p>
+            <div class="mt-5 flex flex-wrap gap-3">
+              <RouterLink to="/storefront/query" class="btn btn-primary inline-flex items-center justify-center px-5 py-2.5">
+                {{ t('storefront.queryOrders') }}
+              </RouterLink>
+              <a href="#storefront-faq" class="btn btn-secondary inline-flex items-center justify-center px-5 py-2.5">购买说明</a>
+            </div>
+          </div>
+          <div class="rounded-2xl bg-slate-50 p-4 dark:bg-dark-800">
+            <div class="grid grid-cols-2 gap-2">
+              <div class="rounded-xl bg-white p-4 dark:bg-dark-900">
+                <div class="text-xs text-slate-500 dark:text-gray-400">交付</div>
+                <div class="mt-1 text-lg font-extrabold text-slate-950 dark:text-white">自动/人工</div>
+              </div>
+              <div class="rounded-xl bg-white p-4 dark:bg-dark-900">
+                <div class="text-xs text-slate-500 dark:text-gray-400">查询</div>
+                <div class="mt-1 text-lg font-extrabold text-slate-950 dark:text-white">邮箱验证码</div>
+              </div>
+              <div class="rounded-xl bg-white p-4 dark:bg-dark-900">
+                <div class="text-xs text-slate-500 dark:text-gray-400">脚本</div>
+                <div class="mt-1 text-lg font-extrabold text-slate-950 dark:text-white">一键下载</div>
+              </div>
+              <div class="rounded-xl bg-white p-4 dark:bg-dark-900">
+                <div class="text-xs text-slate-500 dark:text-gray-400">套餐</div>
+                <div class="mt-1 text-lg font-extrabold text-slate-950 dark:text-white">自动上架</div>
+              </div>
+            </div>
+          </div>
         </div>
-        <RouterLink to="/storefront/query" class="btn btn-secondary inline-flex items-center justify-center px-4 py-2">
-          {{ t('storefront.queryOrders') }}
-        </RouterLink>
       </header>
 
       <div v-if="loading" class="flex justify-center py-20">
@@ -45,47 +74,52 @@
               v-for="product in products"
               :key="`${product.source}:${product.id}`"
               type="button"
-              class="card flex min-h-[230px] flex-col border p-5 text-left transition"
-              :class="selectedProduct?.source === product.source && selectedProduct?.id === product.id ? 'border-primary-500 ring-2 ring-primary-500/20' : 'border-transparent hover:border-gray-300 dark:hover:border-dark-600'"
+              class="flex min-h-[292px] flex-col rounded-2xl border bg-white p-5 text-left shadow-sm transition dark:bg-dark-900"
+              :class="selectedProduct?.source === product.source && selectedProduct?.id === product.id ? 'border-emerald-600 ring-4 ring-emerald-600/10' : 'border-slate-200 hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md dark:border-dark-700 dark:hover:border-dark-600'"
               :disabled="product.source === 'store_product' && isSoldOut(product)"
               @click="selectProduct(product)"
             >
               <div class="mb-3 flex items-center justify-between gap-3">
-                <span class="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium uppercase text-gray-600 dark:bg-dark-800 dark:text-gray-300">
-                  {{ sourceLabel(product) }}
-                </span>
-                <span v-if="product.source === 'subscription_plan'" class="text-xs font-medium text-primary-600 dark:text-primary-400">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span :class="['rounded-full px-2.5 py-1 text-xs font-bold', sourceBadgeClass(product)]">
+                    {{ sourceLabel(product) }}
+                  </span>
+                  <span v-if="productBadge(product)" :class="['rounded-full px-2.5 py-1 text-xs font-bold', productBadgeClass(product)]">
+                    {{ productBadge(product) }}
+                  </span>
+                </div>
+                <span v-if="product.source === 'subscription_plan'" class="shrink-0 text-xs font-bold text-emerald-700 dark:text-emerald-300">
                   {{ product.validity_days }}{{ validityUnitLabel(product.validity_unit) }}
                 </span>
                 <span v-else-if="isSoldOut(product)" class="text-xs font-medium text-red-500">{{ t('storefront.soldOut') }}</span>
               </div>
-              <h3 class="text-lg font-bold">{{ product.name }}</h3>
-              <p class="mt-2 line-clamp-3 text-sm leading-6 text-gray-500 dark:text-gray-400">{{ product.description }}</p>
-              <div class="mt-4 grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400">
-                <div>
-                  <span class="block text-gray-400 dark:text-gray-500">到手内容</span>
-                  <span class="font-medium text-gray-700 dark:text-gray-200">{{ deliverySummary(product) }}</span>
+              <h3 class="text-xl font-extrabold text-slate-950 dark:text-white">{{ product.name }}</h3>
+              <p class="mt-2 line-clamp-2 min-h-[48px] text-sm leading-6 text-slate-500 dark:text-gray-400">{{ product.description }}</p>
+              <div class="mt-4 grid grid-cols-2 overflow-hidden rounded-xl border border-slate-100 bg-slate-50 text-xs dark:border-dark-700 dark:bg-dark-800">
+                <div class="border-b border-r border-slate-100 p-3 dark:border-dark-700">
+                  <span class="block text-slate-400 dark:text-gray-500">到手内容</span>
+                  <span class="mt-1 block font-extrabold text-slate-900 dark:text-gray-100">{{ deliverySummary(product) }}</span>
                 </div>
-                <div>
-                  <span class="block text-gray-400 dark:text-gray-500">交付方式</span>
-                  <span class="font-medium text-gray-700 dark:text-gray-200">{{ deliveryModeLabel(product) }}</span>
+                <div class="border-b border-slate-100 p-3 dark:border-dark-700">
+                  <span class="block text-slate-400 dark:text-gray-500">交付方式</span>
+                  <span class="mt-1 block font-extrabold text-slate-900 dark:text-gray-100">{{ deliveryModeLabel(product) }}</span>
                 </div>
-                <div v-if="product.source === 'subscription_plan'">
-                  <span class="block text-gray-400 dark:text-gray-500">适用分组</span>
-                  <span class="font-medium text-gray-700 dark:text-gray-200">{{ product.group_name || product.group_platform || 'Group' }}</span>
+                <div class="border-r border-slate-100 p-3 dark:border-dark-700">
+                  <span class="block text-slate-400 dark:text-gray-500">{{ product.source === 'subscription_plan' ? '适用分组' : '库存' }}</span>
+                  <span class="mt-1 block font-extrabold text-slate-900 dark:text-gray-100">{{ secondaryMetric(product) }}</span>
                 </div>
-                <div v-if="product.source === 'subscription_plan'">
-                  <span class="block text-gray-400 dark:text-gray-500">Key 额度</span>
-                  <span class="font-medium text-gray-700 dark:text-gray-200">{{ keyQuotaLabel(product.key_quota_usd) }}</span>
+                <div class="p-3">
+                  <span class="block text-slate-400 dark:text-gray-500">{{ product.source === 'subscription_plan' ? 'Key 额度' : '商品类型' }}</span>
+                  <span class="mt-1 block font-extrabold text-slate-900 dark:text-gray-100">{{ finalMetric(product) }}</span>
                 </div>
               </div>
               <div class="mt-auto flex items-end justify-between gap-3 pt-4">
-                <div class="text-2xl font-bold text-primary-600 dark:text-primary-400">
+                <div class="text-2xl font-extrabold text-emerald-800 dark:text-emerald-300">
                   {{ formatMoney(product.price, product.currency) }}
                 </div>
                 <span
                   class="rounded-lg px-3 py-2 text-sm font-semibold"
-                  :class="isSoldOut(product) ? 'bg-gray-100 text-gray-400 dark:bg-dark-800' : 'bg-primary-50 text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'"
+                  :class="isSoldOut(product) ? 'bg-gray-100 text-gray-400 dark:bg-dark-800' : 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'"
                 >
                   {{ cardActionLabel(product) }}
                 </span>
@@ -94,7 +128,7 @@
           </div>
         </section>
 
-        <aside class="card h-fit p-5 lg:sticky lg:top-6">
+        <aside class="h-fit rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-dark-700 dark:bg-dark-900 lg:sticky lg:top-6">
           <div class="flex items-start justify-between gap-3">
             <div>
               <h2 class="text-lg font-semibold">{{ t('storefront.checkout') }}</h2>
@@ -163,10 +197,25 @@
             <div v-if="payment.payment.qr_code" class="mt-4 break-all rounded bg-gray-50 p-3 text-xs dark:bg-dark-800">
               {{ payment.payment.qr_code }}
             </div>
-            <RouterLink to="/storefront/query" class="btn btn-secondary mt-3 block text-center py-3">{{ t('storefront.queryLater') }}</RouterLink>
+            <RouterLink to="/storefront/query" class="btn btn-primary mt-3 block text-center py-3">查看订单</RouterLink>
+            <button class="btn btn-secondary mt-3 w-full py-3" @click="copyQueryEmail">复制查询邮箱</button>
+            <RouterLink to="/storefront/query" class="btn btn-secondary mt-3 block text-center py-3">下载脚本</RouterLink>
           </div>
         </div>
       </div>
+
+      <section id="storefront-faq" class="mt-8 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm dark:border-dark-700 dark:bg-dark-900">
+        <div class="mb-5">
+          <h2 class="text-xl font-extrabold text-slate-950 dark:text-white">购买说明</h2>
+          <p class="mt-1 text-sm text-slate-500 dark:text-gray-400">下单、交付、查询和脚本相关的常见问题。</p>
+        </div>
+        <div class="grid gap-3 md:grid-cols-2">
+          <div v-for="faq in faqs" :key="faq.question" class="rounded-xl bg-slate-50 p-4 dark:bg-dark-800">
+            <h3 class="text-sm font-bold text-slate-950 dark:text-white">{{ faq.question }}</h3>
+            <p class="mt-2 text-sm leading-6 text-slate-500 dark:text-gray-400">{{ faq.answer }}</p>
+          </div>
+        </div>
+      </section>
     </main>
   </div>
 </template>
@@ -194,6 +243,13 @@ const cachedQueryToken = ref('')
 const emailCodeInput = ref<HTMLInputElement | null>(null)
 let codeCooldownTimer: ReturnType<typeof setInterval> | null = null
 
+const faqs = [
+  { question: '支付后多久交付？', answer: 'API Key 和订阅套餐通常会在支付成功后自动交付；人工商品会按商品说明处理。' },
+  { question: '如何查询订单？', answer: '使用下单邮箱接收验证码后进入订单查询中心，可查看订单、API Key、额度和用量。' },
+  { question: '安装脚本和配置脚本有什么区别？', answer: '安装脚本用于安装客户端或工具；配置脚本会写入具体订单对应的 API Key。' },
+  { question: '生成新 Key 和充值已有 Key 怎么选？', answer: '首次购买建议生成新 Key；已有同分组 Key 时可选择充值，额度会增加并按规则更新有效期。' }
+]
+
 const hasCachedEmail = computed(() => !!email.value && !!cachedQueryToken.value)
 
 function formatMoney(price: number, currency: string) {
@@ -213,6 +269,12 @@ function productTypeLabel(type: string) {
 
 function sourceLabel(product: StorefrontProduct) {
   return product.source === 'subscription_plan' ? t('storefront.subscriptionSource') : productTypeLabel(product.product_type)
+}
+
+function sourceBadgeClass(product: StorefrontProduct) {
+  return product.source === 'subscription_plan'
+    ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-300'
+    : 'bg-slate-100 text-slate-700 dark:bg-dark-800 dark:text-slate-300'
 }
 
 function validityUnitLabel(unit?: string) {
@@ -236,6 +298,32 @@ function deliverySummary(product: StorefrontProduct) {
   if (product.product_type === 'account') return '账号信息'
   if (product.product_type === 'sms') return '短信/接码服务'
   return '人工交付商品'
+}
+
+function productBadge(product: StorefrontProduct) {
+  if (product.source === 'subscription_plan') return '推荐套餐'
+  if (isSoldOut(product)) return '已售罄'
+  if (product.delivery_mode === 'auto') return '自动交付'
+  if (product.stock_mode === 'tracked') return '库存有限'
+  return '人工服务'
+}
+
+function productBadgeClass(product: StorefrontProduct) {
+  if (isSoldOut(product)) return 'bg-red-50 text-red-600 dark:bg-red-900/30 dark:text-red-300'
+  if (product.source === 'subscription_plan') return 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
+  if (product.delivery_mode === 'auto') return 'bg-blue-50 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+  return 'bg-violet-50 text-violet-700 dark:bg-violet-900/30 dark:text-violet-300'
+}
+
+function secondaryMetric(product: StorefrontProduct) {
+  if (product.source === 'subscription_plan') return product.group_name || product.group_platform || 'Group'
+  if (product.stock_mode === 'tracked') return `${product.stock_count || 0} 件`
+  return '不限库存'
+}
+
+function finalMetric(product: StorefrontProduct) {
+  if (product.source === 'subscription_plan') return keyQuotaLabel(product.key_quota_usd)
+  return productTypeLabel(product.product_type)
 }
 
 function cardActionLabel(product: StorefrontProduct | null) {
@@ -362,6 +450,16 @@ async function createOrder() {
     message.value = err?.message || t('storefront.createOrderFailed')
   } finally {
     submitting.value = false
+  }
+}
+
+async function copyQueryEmail() {
+  if (!payment.value?.store_order?.email) return
+  try {
+    await navigator.clipboard.writeText(payment.value.store_order.email)
+    message.value = '查询邮箱已复制。'
+  } catch {
+    message.value = payment.value.store_order.email
   }
 }
 

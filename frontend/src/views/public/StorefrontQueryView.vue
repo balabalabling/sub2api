@@ -80,10 +80,64 @@
             <h2 class="text-xl font-bold">我的订单</h2>
             <p class="text-sm text-gray-500 dark:text-gray-400">共 {{ items.length }} 条记录，可按订单下载对应 API Key 配置脚本。</p>
           </div>
+          <div class="flex w-fit rounded-lg bg-gray-100 p-1 dark:bg-dark-800">
+            <button
+              type="button"
+              class="rounded-md px-3 py-1.5 text-sm font-medium"
+              :class="viewMode === 'cards' ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white' : 'text-gray-500 dark:text-gray-400'"
+              @click="viewMode = 'cards'"
+            >
+              卡片
+            </button>
+            <button
+              type="button"
+              class="rounded-md px-3 py-1.5 text-sm font-medium"
+              :class="viewMode === 'table' ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-700 dark:text-white' : 'text-gray-500 dark:text-gray-400'"
+              @click="viewMode = 'table'"
+            >
+              表格
+            </button>
+          </div>
         </div>
       </section>
 
-      <section class="grid gap-4">
+      <section v-if="items.length && viewMode === 'table'" class="overflow-hidden rounded-lg border border-gray-200 bg-white dark:border-dark-700 dark:bg-dark-900">
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-gray-200 text-sm dark:divide-dark-700">
+            <thead class="bg-gray-50 text-left text-xs uppercase text-gray-500 dark:bg-dark-800">
+              <tr>
+                <th class="px-4 py-3">订单</th>
+                <th class="px-4 py-3">商品</th>
+                <th class="px-4 py-3">API Key</th>
+                <th class="px-4 py-3">额度/已用</th>
+                <th class="px-4 py-3">有效期</th>
+                <th class="px-4 py-3">状态</th>
+                <th class="px-4 py-3 text-right">操作</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-100 dark:divide-dark-800">
+              <tr v-for="item in items" :key="`table-${item.order_no}-${item.api_key_id}`" class="hover:bg-gray-50 dark:hover:bg-dark-800/70">
+                <td class="px-4 py-4 whitespace-nowrap">{{ item.order_no || '非商城订单' }}</td>
+                <td class="px-4 py-4">
+                  <div class="font-semibold text-gray-900 dark:text-white">{{ item.product_name || 'API Key' }}</div>
+                  <div class="mt-1 text-xs text-gray-500">{{ productTypeLabel(item.product_type) }}</div>
+                </td>
+                <td class="px-4 py-4 font-mono text-xs">{{ item.api_key_masked || '-' }}</td>
+                <td class="px-4 py-4 whitespace-nowrap">{{ money(item.quota) }} / {{ money(item.quota_used) }}</td>
+                <td class="px-4 py-4 whitespace-nowrap">{{ formatDate(item.expires_at) }}</td>
+                <td class="px-4 py-4">
+                  <span class="rounded-md bg-gray-100 px-2 py-1 text-xs font-medium dark:bg-dark-800">{{ item.delivery_status || item.key_status || '-' }}</span>
+                </td>
+                <td class="px-4 py-4 text-right">
+                  <button v-if="item.api_key" class="btn btn-secondary px-3 py-1.5 text-xs" @click="downloadOrderConfigScript(item)">配置脚本</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section v-else class="grid gap-4">
         <article v-for="item in items" :key="`${item.order_no}-${item.api_key_id}`" class="card p-5">
           <div class="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
             <div>
@@ -172,6 +226,7 @@ const items = ref<StoreUsageItem[]>([])
 const cachedSession = ref<CachedSession | null>(null)
 const rememberQuery = ref(false)
 const showAdvancedQuery = ref(false)
+const viewMode = ref<'cards' | 'table'>('cards')
 let codeCooldownTimer: ReturnType<typeof setInterval> | null = null
 
 function money(value: number) {
