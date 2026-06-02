@@ -43,7 +43,10 @@ func (h *StorefrontHandler) GetProduct(c *gin.Context) {
 
 type storefrontCreateOrderRequest struct {
 	Email       string `json:"email" binding:"required"`
-	ProductID   int64  `json:"product_id" binding:"required"`
+	ProductID   int64  `json:"product_id"`
+	Source      string `json:"source"`
+	PlanID      int64  `json:"plan_id"`
+	QueryToken  string `json:"query_token"`
 	PaymentType string `json:"payment_type"`
 	ReturnURL   string `json:"return_url"`
 	IsMobile    *bool  `json:"is_mobile"`
@@ -62,6 +65,9 @@ func (h *StorefrontHandler) CreateOrder(c *gin.Context) {
 	result, err := h.paymentService.CreateStorefrontOrder(c.Request.Context(), service.StorefrontCreateOrderInput{
 		Email:       req.Email,
 		ProductID:   req.ProductID,
+		Source:      req.Source,
+		PlanID:      req.PlanID,
+		QueryToken:  req.QueryToken,
 		PaymentType: req.PaymentType,
 		ClientIP:    c.ClientIP(),
 		IsMobile:    mobile,

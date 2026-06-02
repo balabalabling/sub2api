@@ -15,6 +15,7 @@ import (
 	"strings"
 	"time"
 
+	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 
@@ -137,6 +138,9 @@ type StoreOrder struct {
 type StorefrontCreateOrderInput struct {
 	Email       string
 	ProductID   int64
+	Source      string
+	PlanID      int64
+	QueryToken  string
 	PaymentType string
 	ClientIP    string
 	IsMobile    bool
@@ -385,6 +389,9 @@ func (s *PaymentService) CreateStorefrontOrder(ctx context.Context, input Storef
 	if !isLikelyEmail(email) {
 		return nil, infraerrors.BadRequest("INVALID_EMAIL", "invalid email")
 	}
+	if strings.TrimSpace(input.Source) == "subscription_plan" || input.PlanID > 0 {
+		return s.createStorefrontSubscriptionOrder(ctx, input, email)
+	}
 	product, err := s.GetStoreProduct(ctx, input.ProductID, true)
 	if err != nil {
 		return nil, err
@@ -438,6 +445,62 @@ func (s *PaymentService) CreateStorefrontOrder(ctx context.Context, input Storef
 	storeOrder, err = s.attachPaymentOrder(ctx, storeOrder.ID, paymentResp.OrderID)
 	if err != nil {
 		releaseStock()
+		return nil, err
+	}
+	return &StorefrontCreateOrderResult{StoreOrder: storeOrder, Payment: paymentResp}, nil
+}
+
+func (s *PaymentService) createStorefrontSubscriptionOrder(ctx context.Context, input StorefrontCreateOrderInput, email string) (*StorefrontCreateOrderResult, error) {
+	if !verifyStoreQueryToken(email, strings.TrimSpace(input.QueryToken)) {
+		return nil, infraerrors.Forbidden("STORE_QUERY_TOKEN_REQUIRED", "email verification is required")
+	}
+	planID := input.PlanID
+	if planID <= 0 {
+		planID = input.ProductID
+	}
+	if planID <= 0 {
+		return nil, infraerrors.BadRequest("INVALID_INPUT", "subscription order requires a plan")
+	}
+	plan, err := s.configService.GetPlan(ctx, planID)
+	if err != nil || plan == nil || !plan.ForSale {
+		return nil, infraerrors.NotFound("PLAN_NOT_AVAILABLE", "plan not found or not for sale")
+	}
+	if s.groupRepo != nil {
+		group, err := s.groupRepo.GetByID(ctx, plan.GroupID)
+		if err != nil || group == nil || group.Status != payment.EntityStatusActive || !group.IsSubscriptionType() {
+			return nil, infraerrors.NotFound("GROUP_NOT_FOUND", "subscription group is no longer available")
+		}
+	}
+	userID, err := s.findOrCreateStoreUser(ctx, email)
+	if err != nil {
+		return nil, err
+	}
+	storeOrder, err := s.createStoreSubscriptionOrder(ctx, email, plan, userID)
+	if err != nil {
+		return nil, err
+	}
+	payType := strings.TrimSpace(input.PaymentType)
+	if payType == "" {
+		payType = payment.TypeAlipay
+	}
+	paymentResp, err := s.CreateOrder(ctx, CreateOrderRequest{
+		UserID:      userID,
+		PaymentType: payType,
+		ClientIP:    input.ClientIP,
+		IsMobile:    input.IsMobile,
+		SrcHost:     input.SrcHost,
+		SrcURL:      input.SrcURL,
+		ReturnURL:   input.ReturnURL,
+		OrderType:   payment.OrderTypeSubscription,
+		PlanID:      plan.ID,
+		Locale:      input.Locale,
+	})
+	if err != nil {
+		_ = s.markStoreOrderFailed(ctx, storeOrder.ID, err)
+		return nil, err
+	}
+	storeOrder, err = s.attachPaymentOrder(ctx, storeOrder.ID, paymentResp.OrderID)
+	if err != nil {
 		return nil, err
 	}
 	return &StorefrontCreateOrderResult{StoreOrder: storeOrder, Payment: paymentResp}, nil
@@ -586,6 +649,35 @@ RETURNING id, order_no, email, product_id, product_type, product_snapshot, amoun
 	return scanStoreOrder(row)
 }
 
+func (s *PaymentService) createStoreSubscriptionOrder(ctx context.Context, email string, plan *dbent.SubscriptionPlan, userID int64) (*StoreOrder, error) {
+	db, err := s.storeSQLDB()
+	if err != nil {
+		return nil, err
+	}
+	snapshot, _ := json.Marshal(map[string]any{
+		"source":        "subscription_plan",
+		"id":            plan.ID,
+		"plan_id":       plan.ID,
+		"product_type":  "subscription_plan",
+		"name":          plan.Name,
+		"description":   plan.Description,
+		"price":         plan.Price,
+		"currency":      "CNY",
+		"group_id":      plan.GroupID,
+		"validity_days": plan.ValidityDays,
+		"validity_unit": plan.ValidityUnit,
+		"key_quota_usd": plan.KeyQuotaUsd,
+	})
+	orderNo := "SUB-" + time.Now().Format("20060102") + "-" + randomString(8)
+	row := db.QueryRowContext(ctx, `
+INSERT INTO store_orders (order_no, email, product_id, product_type, product_snapshot, amount, currency, user_id)
+VALUES ($1,$2,NULL,$3,$4::jsonb,$5,$6,$7)
+RETURNING id, order_no, email, product_id, product_type, product_snapshot, amount::double precision, currency, payment_order_id, user_id, api_key_id, delivery_status, delivery_payload, COALESCE(delivery_error,''), email_sent_at, delivered_at, created_at, updated_at`,
+		orderNo, email, "subscription_plan", string(snapshot), plan.Price, "CNY", userID,
+	)
+	return scanStoreOrder(row)
+}
+
 func (s *PaymentService) attachPaymentOrder(ctx context.Context, storeOrderID, paymentOrderID int64) (*StoreOrder, error) {
 	db, err := s.storeSQLDB()
 	if err != nil {
@@ -598,6 +690,19 @@ WHERE id=$1
 RETURNING id, order_no, email, product_id, product_type, product_snapshot, amount::double precision, currency, payment_order_id, user_id, api_key_id, delivery_status, delivery_payload, COALESCE(delivery_error,''), email_sent_at, delivered_at, created_at, updated_at`,
 		storeOrderID, paymentOrderID)
 	return scanStoreOrder(row)
+}
+
+func (s *PaymentService) attachStoreOrderAPIKey(ctx context.Context, paymentOrderID, apiKeyID int64) error {
+	db, err := s.storeSQLDB()
+	if err != nil {
+		return err
+	}
+	_, err = db.ExecContext(ctx, `
+UPDATE store_orders
+SET api_key_id=$2, delivery_status=$3, delivered_at=COALESCE(delivered_at, NOW()), updated_at=NOW()
+WHERE payment_order_id=$1 AND product_type='subscription_plan'`,
+		paymentOrderID, apiKeyID, StoreDeliveryStatusDelivered)
+	return err
 }
 
 func (s *PaymentService) findOrCreateStoreUser(ctx context.Context, email string) (int64, error) {

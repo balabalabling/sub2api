@@ -80,6 +80,12 @@ vi.mock('@/api/payment', () => ({
   },
 }))
 
+vi.mock('@/api/keys', () => ({
+  default: {
+    list: vi.fn().mockResolvedValue({ data: { items: [] } }),
+  },
+}))
+
 vi.mock('@/utils/device', () => ({
   isMobileDevice: () => true,
 }))

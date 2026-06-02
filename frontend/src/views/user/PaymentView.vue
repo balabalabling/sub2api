@@ -1161,7 +1161,11 @@ onMounted(async () => {
         removeRecoverySnapshot()
       }
     }
-    await loadRechargeKeys()
+    try {
+      await loadRechargeKeys()
+    } catch {
+      rechargeKeys.value = []
+    }
     await resumeWechatPaymentFromQuery()
     if (checkout.value.balance_disabled) {
       activeTab.value = 'subscription'
@@ -1169,7 +1173,7 @@ onMounted(async () => {
     // Handle renewal navigation: ?tab=subscription&group=123
     if (route.query.tab === 'subscription') {
       activeTab.value = 'subscription'
-      if (route.query.plan_id) {
+      if (typeof route.query.plan_id === 'string') {
         const planId = Number(route.query.plan_id)
         const plan = checkout.value.plans.find(p => p.id === planId)
         if (plan) {

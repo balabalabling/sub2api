@@ -470,6 +470,9 @@ func (s *PaymentService) doSub(ctx context.Context, o *dbent.PaymentOrder) error
 	if err != nil {
 		return err
 	}
+	if err := s.attachStoreOrderAPIKey(ctx, o.ID, keyID); err != nil {
+		slog.Warn("attach storefront subscription api key failed", "orderID", o.ID, "apiKeyID", keyID, "err", err.Error())
+	}
 	if _, err := s.entClient.PaymentOrder.UpdateOneID(o.ID).SetAPIKeyID(keyID).Save(ctx); err != nil {
 		return fmt.Errorf("attach generated api key to order: %w", err)
 	}

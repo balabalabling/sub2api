@@ -75,10 +75,27 @@
               <span class="mb-1 block text-sm font-medium">{{ t('storefront.email') }}</span>
               <input v-model.trim="email" type="email" required class="input" placeholder="you@example.com">
             </label>
-            <button class="btn btn-primary w-full py-3" :disabled="submitting || !selectedProduct || selectedProduct.source !== 'store_product' || isSoldOut(selectedProduct)">
+            <div v-if="selectedProduct?.source === 'subscription_plan' && !hasCachedEmail" class="rounded-lg border border-dashed border-gray-200 p-3 dark:border-dark-700">
+              <div class="flex gap-2">
+                <input v-model.trim="emailCode" class="input" :placeholder="t('storefront.emailCodePlaceholder')" maxlength="6">
+                <button type="button" class="btn btn-secondary whitespace-nowrap px-4" :disabled="sendingCode || !email" @click="sendEmailCode">
+                  {{ sendingCode ? t('storefront.sendingCode') : t('storefront.sendCode') }}
+                </button>
+              </div>
+              <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">{{ t('storefront.subscriptionEmailVerifyHint') }}</p>
+            </div>
+            <button v-if="selectedProduct?.source !== 'subscription_plan'" class="btn btn-primary w-full py-3" :disabled="submitting || !selectedProduct || isSoldOut(selectedProduct)">
               {{ submitting ? t('storefront.creatingOrder') : t('storefront.alipayPay') }}
             </button>
-            <p v-if="selectedProduct?.source === 'subscription_plan'" class="text-sm text-gray-500 dark:text-gray-400">{{ t('storefront.subscriptionRedirectHint') }}</p>
+            <button
+              v-if="selectedProduct?.source === 'subscription_plan'"
+              type="submit"
+              class="btn btn-primary w-full py-3"
+              :disabled="submitting || !email || (!hasCachedEmail && !emailCode)"
+            >
+              {{ submitting ? t('storefront.creatingOrder') : t('storefront.alipayPay') }}
+            </button>
+            <p v-if="selectedProduct?.source === 'subscription_plan'" class="text-sm text-gray-500 dark:text-gray-400">{{ t('storefront.subscriptionCheckoutHint') }}</p>
             <p v-if="message" class="text-sm text-gray-500 dark:text-gray-400">{{ message }}</p>
           </form>
         </aside>
@@ -107,21 +124,26 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRouter } from 'vue-router'
 import { storefrontAPI, type StorefrontProduct, type StoreOrderResult } from '@/api/storefront'
 
-const router = useRouter()
 const { t } = useI18n()
+const QUERY_CACHE_KEY = 'storefront.query.session.v1'
+const QUERY_SESSION_KEY = 'storefront.query.session.temp.v1'
 const products = ref<StorefrontProduct[]>([])
 const selectedProduct = ref<StorefrontProduct | null>(null)
 const email = ref('')
+const emailCode = ref('')
 const loading = ref(false)
 const submitting = ref(false)
+const sendingCode = ref(false)
 const message = ref('')
 const loadError = ref('')
 const payment = ref<StoreOrderResult | null>(null)
+const cachedQueryToken = ref('')
+
+const hasCachedEmail = computed(() => !!email.value && !!cachedQueryToken.value)
 
 function formatMoney(price: number, currency: string) {
   return `${currency || 'CNY'} ${Number(price || 0).toFixed(2)}`
@@ -155,11 +177,21 @@ function isSoldOut(product: StorefrontProduct | null) {
 }
 
 function selectProduct(product: StorefrontProduct) {
-  if (product.source === 'subscription_plan') {
-    router.push({ path: '/purchase', query: { tab: 'subscription', plan_id: String(product.plan_id || product.id) } })
-    return
-  }
   selectedProduct.value = product
+  message.value = ''
+}
+
+function readCachedQuerySession() {
+  try {
+    const raw = window.localStorage.getItem(QUERY_CACHE_KEY) || window.sessionStorage.getItem(QUERY_SESSION_KEY)
+    if (!raw) return
+    const parsed = JSON.parse(raw) as { email?: string; queryToken?: string; savedAt?: number }
+    if (!parsed.email || !parsed.queryToken) return
+    email.value = parsed.email
+    cachedQueryToken.value = parsed.queryToken
+  } catch {
+    cachedQueryToken.value = ''
+  }
 }
 
 async function loadProducts() {
@@ -170,7 +202,7 @@ async function loadProducts() {
     const { data } = await storefrontAPI.listProducts()
     const list = Array.isArray(data) ? data : []
     products.value = list
-    selectedProduct.value = list.find((item) => item.source === 'store_product' && !isSoldOut(item)) || null
+    selectedProduct.value = list.find((item) => item.source === 'store_product' && !isSoldOut(item)) || list[0] || null
   } catch (err: any) {
     products.value = []
     selectedProduct.value = null
@@ -180,14 +212,47 @@ async function loadProducts() {
   }
 }
 
+async function sendEmailCode() {
+  if (!email.value) return
+  sendingCode.value = true
+  message.value = ''
+  try {
+    await storefrontAPI.sendQueryCode(email.value)
+    message.value = t('storefront.emailCodeSent')
+  } catch (err: any) {
+    message.value = err?.message || t('storefront.emailCodeFailed')
+  } finally {
+    sendingCode.value = false
+  }
+}
+
+async function verifyEmailIfNeeded() {
+  if (selectedProduct.value?.source !== 'subscription_plan' || hasCachedEmail.value) return true
+  if (!email.value || !emailCode.value) return false
+  const verify = await storefrontAPI.verifyQueryCode(email.value, emailCode.value)
+  const token = verify.data?.query_token || ''
+  if (token) {
+    cachedQueryToken.value = token
+    window.sessionStorage.setItem(QUERY_SESSION_KEY, JSON.stringify({ email: email.value, queryToken: token, savedAt: Date.now() }))
+  }
+  return true
+}
+
 async function createOrder() {
-  if (!selectedProduct.value || selectedProduct.value.source !== 'store_product') return
+  if (!selectedProduct.value) return
   submitting.value = true
   message.value = ''
   try {
+    if (!await verifyEmailIfNeeded()) {
+      message.value = t('storefront.emailCodeRequired')
+      return
+    }
     const { data } = await storefrontAPI.createOrder({
       email: email.value,
-      product_id: selectedProduct.value.id,
+      product_id: selectedProduct.value.source === 'store_product' ? selectedProduct.value.id : undefined,
+      source: selectedProduct.value.source,
+      plan_id: selectedProduct.value.source === 'subscription_plan' ? (selectedProduct.value.plan_id || selectedProduct.value.id) : undefined,
+      query_token: selectedProduct.value.source === 'subscription_plan' ? cachedQueryToken.value : undefined,
       payment_type: 'alipay',
       return_url: `${window.location.origin}/storefront/query`
     })
@@ -200,5 +265,8 @@ async function createOrder() {
   }
 }
 
-onMounted(loadProducts)
+onMounted(() => {
+  readCachedQuerySession()
+  void loadProducts()
+})
 </script>

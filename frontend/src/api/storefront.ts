@@ -72,7 +72,7 @@ export const storefrontAPI = {
     return apiClient.get<StorefrontProduct[]>('/storefront/products')
   },
 
-  createOrder(data: { email: string; product_id: number; payment_type?: string; return_url?: string; is_mobile?: boolean }) {
+  createOrder(data: { email: string; product_id?: number; source?: StorefrontProductSource; plan_id?: number; query_token?: string; payment_type?: string; return_url?: string; is_mobile?: boolean }) {
     return apiClient.post<StoreOrderResult>('/storefront/orders', data)
   },
 
