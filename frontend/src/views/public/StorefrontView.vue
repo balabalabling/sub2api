@@ -220,7 +220,7 @@ async function sendEmailCode() {
     await storefrontAPI.sendQueryCode(email.value)
     message.value = t('storefront.emailCodeSent')
   } catch (err: any) {
-    message.value = err?.message || t('storefront.emailCodeFailed')
+    message.value = err?.reason === 'STORE_EMAIL_NOT_FOUND' ? t('storefront.emailNoValidData') : (err?.message || t('storefront.emailCodeFailed'))
   } finally {
     sendingCode.value = false
   }

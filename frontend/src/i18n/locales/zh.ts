@@ -694,6 +694,7 @@ export default {
     emailCodeSent: '验证码已发送，请查看邮箱',
     emailCodeFailed: '验证码发送失败',
     emailCodeRequired: '请输入邮箱验证码',
+    emailNoValidData: '无法找到该邮箱任何有效数据',
     paymentCreated: '订单已创建，请完成支付。支付成功后系统会自动处理发货。',
     openCashier: '打开支付宝收银台',
     queryLater: '稍后查询订单',

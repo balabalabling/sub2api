@@ -208,7 +208,7 @@ async function sendCode() {
     await storefrontAPI.sendQueryCode(email.value)
     message.value = '验证码已发送，请检查邮箱。'
   } catch (err: any) {
-    message.value = err?.message || '验证码发送失败'
+    message.value = err?.reason === 'STORE_EMAIL_NOT_FOUND' ? '无法找到该邮箱任何有效数据。' : (err?.message || '验证码发送失败')
   } finally {
     sending.value = false
   }

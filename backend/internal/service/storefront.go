@@ -516,7 +516,7 @@ func (s *PaymentService) SendStoreQueryCode(ctx context.Context, email string, l
 		return err
 	}
 	if !exists {
-		return infraerrors.NotFound("STORE_EMAIL_NOT_FOUND", "email not found")
+		return infraerrors.NotFound("STORE_EMAIL_NOT_FOUND", "no valid data found for this email")
 	}
 	code := randomDigits(6)
 	sum := sha256.Sum256([]byte(normalized + ":" + code))
@@ -555,15 +555,29 @@ func (s *PaymentService) storeEmailExists(ctx context.Context, email string) (bo
 	}
 	var exists bool
 	if err := db.QueryRowContext(ctx, `
-SELECT EXISTS (
-  SELECT 1
+WITH email_users AS (
+  SELECT id
   FROM users
   WHERE lower(email)=lower($1) AND deleted_at IS NULL
-  LIMIT 1
-) OR EXISTS (
-  SELECT 1
+),
+email_orders AS (
+  SELECT api_key_id
   FROM store_orders
   WHERE lower(email)=lower($1)
+),
+email_keys AS (
+  SELECT DISTINCT k.id
+  FROM api_keys k
+  JOIN email_users eu ON eu.id = k.user_id
+  WHERE k.deleted_at IS NULL
+  UNION
+  SELECT DISTINCT api_key_id
+  FROM email_orders
+  WHERE api_key_id IS NOT NULL
+)
+SELECT EXISTS (
+  SELECT 1
+  FROM email_keys
   LIMIT 1
 )`, email).Scan(&exists); err != nil {
 		return false, err

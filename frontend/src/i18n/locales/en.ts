@@ -695,6 +695,7 @@ export default {
     emailCodeSent: 'Code sent. Please check your email.',
     emailCodeFailed: 'Failed to send code',
     emailCodeRequired: 'Please enter the email code',
+    emailNoValidData: 'No valid data was found for this email',
     paymentCreated: 'Order created. Please complete payment; delivery will be processed automatically after payment succeeds.',
     openCashier: 'Open Alipay Cashier',
     queryLater: 'Query Order Later',
