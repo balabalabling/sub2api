@@ -33,8 +33,8 @@
             <span class="mb-1 block text-sm font-medium">邮箱</span>
             <input v-model.trim="email" type="email" class="input" placeholder="you@example.com">
           </label>
-          <button class="btn btn-secondary px-4 py-3" :disabled="sending || !email" @click="sendCode">
-            {{ sending ? '发送中...' : '发送验证码' }}
+          <button class="btn btn-secondary px-4 py-3" :disabled="sending || codeCooldown > 0 || !email" @click="sendCode">
+            {{ sending ? '发送中...' : codeCooldown > 0 ? `${codeCooldown}s 后重发` : '发送验证码' }}
           </button>
           <label class="block">
             <span class="mb-1 block text-sm font-medium">验证码</span>
@@ -96,7 +96,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref } from 'vue'
 import { storefrontAPI, type StoreUsageItem } from '@/api/storefront'
 import { downloadConfigScript } from '@/utils/configScriptDownload'
 
@@ -124,10 +124,12 @@ const code = ref('')
 const apiKey = ref('')
 const message = ref('')
 const sending = ref(false)
+const codeCooldown = ref(0)
 const loading = ref(false)
 const items = ref<StoreUsageItem[]>([])
 const cachedSession = ref<CachedSession | null>(null)
 const rememberQuery = ref(false)
+let codeCooldownTimer: ReturnType<typeof setInterval> | null = null
 
 function money(value: number) {
   return `$${Number(value || 0).toFixed(4)}`
@@ -147,6 +149,25 @@ function saveFile(filename: string, content: string, mimeType = 'text/plain;char
   link.click()
   link.remove()
   URL.revokeObjectURL(url)
+}
+
+function startCodeCooldown(seconds = 60) {
+  codeCooldown.value = Math.max(0, Math.ceil(seconds))
+  if (codeCooldownTimer) {
+    clearInterval(codeCooldownTimer)
+  }
+  codeCooldownTimer = setInterval(() => {
+    codeCooldown.value = Math.max(0, codeCooldown.value - 1)
+    if (codeCooldown.value <= 0 && codeCooldownTimer) {
+      clearInterval(codeCooldownTimer)
+      codeCooldownTimer = null
+    }
+  }, 1000)
+}
+
+function retryAfterFromError(err: any) {
+  const value = Number(err?.metadata?.retry_after)
+  return Number.isFinite(value) && value > 0 ? value : 60
 }
 
 function loadCachedSession() {
@@ -206,9 +227,15 @@ async function sendCode() {
   message.value = ''
   try {
     await storefrontAPI.sendQueryCode(email.value)
+    startCodeCooldown()
     message.value = '验证码已发送，请检查邮箱。'
   } catch (err: any) {
-    message.value = err?.reason === 'STORE_EMAIL_NOT_FOUND' ? '无法找到该邮箱任何有效数据。' : (err?.message || '验证码发送失败')
+    if (err?.reason === 'STORE_QUERY_CODE_TOO_FREQUENT') {
+      startCodeCooldown(retryAfterFromError(err))
+      message.value = '发送过于频繁，请稍后再试。'
+    } else {
+      message.value = err?.reason === 'STORE_EMAIL_NOT_FOUND' ? '无法找到该邮箱任何有效数据。' : (err?.message || '验证码发送失败')
+    }
   } finally {
     sending.value = false
   }
@@ -265,6 +292,13 @@ onMounted(() => {
   loadCachedSession()
   if (cachedSession.value) {
     queryCachedEmail()
+  }
+})
+
+onUnmounted(() => {
+  if (codeCooldownTimer) {
+    clearInterval(codeCooldownTimer)
+    codeCooldownTimer = null
   }
 })
 </script>

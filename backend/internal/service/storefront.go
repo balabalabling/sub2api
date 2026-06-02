@@ -49,8 +49,9 @@ const (
 	StoreDeliveryStatusFailed         = "failed"
 	StoreDeliveryStatusManualRequired = "manual_required"
 
-	storeEmailCodePurposeQuery = "query"
-	storeEmailCodeTTL          = 10 * time.Minute
+	storeEmailCodePurposeQuery   = "query"
+	storeEmailCodeTTL            = 10 * time.Minute
+	storeEmailCodeResendCooldown = time.Minute
 )
 
 type StoreProduct struct {
@@ -518,6 +519,12 @@ func (s *PaymentService) SendStoreQueryCode(ctx context.Context, email string, l
 	if !exists {
 		return infraerrors.NotFound("STORE_EMAIL_NOT_FOUND", "no valid data found for this email")
 	}
+	if retryAfter, err := s.storeQueryCodeRetryAfter(ctx, normalized); err != nil {
+		return err
+	} else if retryAfter > 0 {
+		return infraerrors.TooManyRequests("STORE_QUERY_CODE_TOO_FREQUENT", "please wait before requesting a new code").
+			WithMetadata(map[string]string{"retry_after": strconv.Itoa(retryAfter)})
+	}
 	code := randomDigits(6)
 	sum := sha256.Sum256([]byte(normalized + ":" + code))
 	db, err := s.storeSQLDB()
@@ -546,6 +553,31 @@ VALUES ($1, $2, $3, $4)`, normalized, hex.EncodeToString(sum[:]), storeEmailCode
 			"expires_in_minutes": strconv.Itoa(int(storeEmailCodeTTL / time.Minute)),
 		},
 	})
+}
+
+func (s *PaymentService) storeQueryCodeRetryAfter(ctx context.Context, email string) (int, error) {
+	db, err := s.storeSQLDB()
+	if err != nil {
+		return 0, err
+	}
+	var createdAt time.Time
+	err = db.QueryRowContext(ctx, `
+SELECT created_at
+FROM store_email_codes
+WHERE lower(email)=lower($1) AND purpose=$2 AND consumed_at IS NULL AND expires_at > NOW()
+ORDER BY created_at DESC
+LIMIT 1`, email, storeEmailCodePurposeQuery).Scan(&createdAt)
+	if err == sql.ErrNoRows {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	elapsed := time.Since(createdAt)
+	if elapsed >= storeEmailCodeResendCooldown {
+		return 0, nil
+	}
+	return int(math.Ceil((storeEmailCodeResendCooldown - elapsed).Seconds())), nil
 }
 
 func (s *PaymentService) storeEmailExists(ctx context.Context, email string) (bool, error) {

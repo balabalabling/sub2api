@@ -78,8 +78,8 @@
             <div v-if="selectedProduct?.source === 'subscription_plan' && !hasCachedEmail" class="rounded-lg border border-dashed border-gray-200 p-3 dark:border-dark-700">
               <div class="flex gap-2">
                 <input v-model.trim="emailCode" class="input" :placeholder="t('storefront.emailCodePlaceholder')" maxlength="6">
-                <button type="button" class="btn btn-secondary whitespace-nowrap px-4" :disabled="sendingCode || !email" @click="sendEmailCode">
-                  {{ sendingCode ? t('storefront.sendingCode') : t('storefront.sendCode') }}
+                <button type="button" class="btn btn-secondary whitespace-nowrap px-4" :disabled="sendingCode || codeCooldown > 0 || !email" @click="sendEmailCode">
+                  {{ sendingCode ? t('storefront.sendingCode') : codeCooldown > 0 ? t('storefront.resendIn', { seconds: codeCooldown }) : t('storefront.sendCode') }}
                 </button>
               </div>
               <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">{{ t('storefront.subscriptionEmailVerifyHint') }}</p>
@@ -124,7 +124,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storefrontAPI, type StorefrontProduct, type StoreOrderResult } from '@/api/storefront'
 
@@ -138,10 +138,12 @@ const emailCode = ref('')
 const loading = ref(false)
 const submitting = ref(false)
 const sendingCode = ref(false)
+const codeCooldown = ref(0)
 const message = ref('')
 const loadError = ref('')
 const payment = ref<StoreOrderResult | null>(null)
 const cachedQueryToken = ref('')
+let codeCooldownTimer: ReturnType<typeof setInterval> | null = null
 
 const hasCachedEmail = computed(() => !!email.value && !!cachedQueryToken.value)
 
@@ -194,6 +196,26 @@ function readCachedQuerySession() {
   }
 }
 
+function startCodeCooldown(seconds = 60) {
+  codeCooldown.value = Math.max(0, Math.ceil(seconds))
+  if (codeCooldownTimer) {
+    clearInterval(codeCooldownTimer)
+  }
+  codeCooldownTimer = setInterval(() => {
+    codeCooldown.value = Math.max(0, codeCooldown.value - 1)
+    if (codeCooldown.value <= 0 && codeCooldownTimer) {
+      clearInterval(codeCooldownTimer)
+      codeCooldownTimer = null
+    }
+  }, 1000)
+}
+
+function retryAfterFromError(err: any) {
+  const raw = err?.metadata?.retry_after
+  const value = Number(raw)
+  return Number.isFinite(value) && value > 0 ? value : 60
+}
+
 async function loadProducts() {
   loading.value = true
   loadError.value = ''
@@ -218,9 +240,15 @@ async function sendEmailCode() {
   message.value = ''
   try {
     await storefrontAPI.sendQueryCode(email.value)
+    startCodeCooldown()
     message.value = t('storefront.emailCodeSent')
   } catch (err: any) {
-    message.value = err?.reason === 'STORE_EMAIL_NOT_FOUND' ? t('storefront.emailNoValidData') : (err?.message || t('storefront.emailCodeFailed'))
+    if (err?.reason === 'STORE_QUERY_CODE_TOO_FREQUENT') {
+      startCodeCooldown(retryAfterFromError(err))
+      message.value = t('storefront.emailCodeTooFrequent')
+    } else {
+      message.value = err?.reason === 'STORE_EMAIL_NOT_FOUND' ? t('storefront.emailNoValidData') : (err?.message || t('storefront.emailCodeFailed'))
+    }
   } finally {
     sendingCode.value = false
   }
@@ -268,5 +296,12 @@ async function createOrder() {
 onMounted(() => {
   readCachedQuerySession()
   void loadProducts()
+})
+
+onUnmounted(() => {
+  if (codeCooldownTimer) {
+    clearInterval(codeCooldownTimer)
+    codeCooldownTimer = null
+  }
 })
 </script>
