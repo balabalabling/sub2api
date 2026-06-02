@@ -764,6 +764,16 @@ const adminNavItems = computed((): NavItem[] => {
         { path: '/admin/orders/plans', label: t('nav.paymentPlans'), icon: CreditCardIcon },
       ],
     },
+    {
+      path: '/admin/store',
+      label: t('nav.storeManagement'),
+      icon: GiftIcon,
+      hideInSimpleMode: true,
+      expandOnly: true,
+      children: [
+        { path: '/admin/store/products', label: t('nav.storeProducts'), icon: GiftIcon },
+      ],
+    },
     { path: '/admin/usage', label: t('nav.usage'), icon: ChartIcon }
   ]
 

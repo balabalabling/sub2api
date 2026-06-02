@@ -670,6 +670,17 @@ const routes: RouteRecordRaw[] = [
       requiresPayment: true
     }
   },
+  {
+    path: '/admin/store/products',
+    name: 'AdminStoreProducts',
+    component: () => import('@/views/admin/store/AdminStoreProductsView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Store Products',
+      titleKey: 'nav.storeProducts'
+    }
+  },
 
   // ==================== 404 Not Found ====================
   {

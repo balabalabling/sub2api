@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -69,6 +70,30 @@ type StoreProduct struct {
 	SaleEndAt      *time.Time     `json:"sale_end_at,omitempty"`
 	CreatedAt      time.Time      `json:"created_at"`
 	UpdatedAt      time.Time      `json:"updated_at"`
+}
+
+type StorefrontProduct struct {
+	Source         string         `json:"source"`
+	ID             int64          `json:"id"`
+	ProductType    string         `json:"product_type"`
+	Name           string         `json:"name"`
+	Description    string         `json:"description"`
+	Price          float64        `json:"price"`
+	Currency       string         `json:"currency"`
+	Status         string         `json:"status,omitempty"`
+	Visibility     string         `json:"visibility,omitempty"`
+	SortOrder      int            `json:"sort_order"`
+	StockMode      string         `json:"stock_mode,omitempty"`
+	StockCount     int            `json:"stock_count,omitempty"`
+	DeliveryMode   string         `json:"delivery_mode,omitempty"`
+	DeliveryConfig map[string]any `json:"delivery_config,omitempty"`
+	PlanID         int64          `json:"plan_id,omitempty"`
+	GroupID        int64          `json:"group_id,omitempty"`
+	GroupName      string         `json:"group_name,omitempty"`
+	GroupPlatform  string         `json:"group_platform,omitempty"`
+	ValidityDays   int            `json:"validity_days,omitempty"`
+	ValidityUnit   string         `json:"validity_unit,omitempty"`
+	KeyQuotaUSD    float64        `json:"key_quota_usd,omitempty"`
 }
 
 type StoreProductInput struct {
@@ -136,6 +161,7 @@ type StoreUsageItem struct {
 	PaidAt         *time.Time `json:"paid_at,omitempty"`
 	DeliveredAt    *time.Time `json:"delivered_at,omitempty"`
 	APIKeyID       int64      `json:"api_key_id,omitempty"`
+	APIKey         string     `json:"api_key,omitempty"`
 	APIKeyMasked   string     `json:"api_key_masked,omitempty"`
 	KeyStatus      string     `json:"key_status,omitempty"`
 	Quota          float64    `json:"quota"`
@@ -188,6 +214,74 @@ WHERE deleted_at IS NULL`
 		out = append(out, p)
 	}
 	return out, rows.Err()
+}
+
+func (s *PaymentService) ListStorefrontProducts(ctx context.Context) ([]StorefrontProduct, error) {
+	ordinary, err := s.ListStoreProducts(ctx, true)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]StorefrontProduct, 0, len(ordinary))
+	for _, p := range ordinary {
+		out = append(out, StorefrontProduct{
+			Source:         "store_product",
+			ID:             p.ID,
+			ProductType:    p.ProductType,
+			Name:           p.Name,
+			Description:    p.Description,
+			Price:          p.Price,
+			Currency:       p.Currency,
+			Status:         p.Status,
+			Visibility:     p.Visibility,
+			SortOrder:      p.SortOrder,
+			StockMode:      p.StockMode,
+			StockCount:     p.StockCount,
+			DeliveryMode:   p.DeliveryMode,
+			DeliveryConfig: p.DeliveryConfig,
+		})
+	}
+
+	db, err := s.storeSQLDB()
+	if err != nil {
+		return nil, err
+	}
+	rows, err := db.QueryContext(ctx, `
+SELECT sp.id, sp.group_id, sp.name, sp.description, sp.price::double precision, sp.key_quota_usd::double precision,
+       sp.validity_days, sp.validity_unit, sp.sort_order, g.name, g.platform
+FROM subscription_plans sp
+JOIN groups g ON g.id = sp.group_id
+WHERE sp.for_sale = TRUE AND g.deleted_at IS NULL AND g.status = 'active'
+ORDER BY sp.sort_order ASC, sp.id ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var p StorefrontProduct
+		var planID int64
+		if err := rows.Scan(&planID, &p.GroupID, &p.Name, &p.Description, &p.Price, &p.KeyQuotaUSD, &p.ValidityDays, &p.ValidityUnit, &p.SortOrder, &p.GroupName, &p.GroupPlatform); err != nil {
+			return nil, err
+		}
+		p.Source = "subscription_plan"
+		p.ID = planID
+		p.PlanID = planID
+		p.ProductType = "subscription_plan"
+		p.Currency = "CNY"
+		out = append(out, p)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].SortOrder == out[j].SortOrder {
+			if out[i].Source == out[j].Source {
+				return out[i].ID < out[j].ID
+			}
+			return out[i].Source < out[j].Source
+		}
+		return out[i].SortOrder < out[j].SortOrder
+	})
+	return out, nil
 }
 
 func (s *PaymentService) GetStoreProduct(ctx context.Context, id int64, publicOnly bool) (*StoreProduct, error) {
@@ -354,6 +448,13 @@ func (s *PaymentService) SendStoreQueryCode(ctx context.Context, email string, l
 	if !isLikelyEmail(normalized) {
 		return infraerrors.BadRequest("INVALID_EMAIL", "invalid email")
 	}
+	exists, err := s.storeEmailExists(ctx, normalized)
+	if err != nil {
+		return err
+	}
+	if !exists {
+		return infraerrors.NotFound("STORE_EMAIL_NOT_FOUND", "email not found")
+	}
 	code := randomDigits(6)
 	sum := sha256.Sum256([]byte(normalized + ":" + code))
 	db, err := s.storeSQLDB()
@@ -382,6 +483,29 @@ VALUES ($1, $2, $3, $4)`, normalized, hex.EncodeToString(sum[:]), storeEmailCode
 			"expires_in_minutes": strconv.Itoa(int(storeEmailCodeTTL / time.Minute)),
 		},
 	})
+}
+
+func (s *PaymentService) storeEmailExists(ctx context.Context, email string) (bool, error) {
+	db, err := s.storeSQLDB()
+	if err != nil {
+		return false, err
+	}
+	var exists bool
+	if err := db.QueryRowContext(ctx, `
+SELECT EXISTS (
+  SELECT 1
+  FROM users
+  WHERE lower(email)=lower($1) AND deleted_at IS NULL
+  LIMIT 1
+) OR EXISTS (
+  SELECT 1
+  FROM store_orders
+  WHERE lower(email)=lower($1)
+  LIMIT 1
+)`, email).Scan(&exists); err != nil {
+		return false, err
+	}
+	return exists, nil
 }
 
 func (s *PaymentService) VerifyStoreQueryCode(ctx context.Context, email string, code string) (string, error) {
@@ -687,7 +811,7 @@ func storeEmailHash(email string) string {
 }
 
 func makeStoreQueryToken(email string) string {
-	expires := time.Now().Add(30 * time.Minute).Unix()
+	expires := time.Now().Add(7 * 24 * time.Hour).Unix()
 	payload := strings.ToLower(strings.TrimSpace(email)) + ":" + strconv.FormatInt(expires, 10)
 	sum := sha256.Sum256([]byte(payload + ":storefront-query-v1"))
 	return strconv.FormatInt(expires, 10) + "." + hex.EncodeToString(sum[:])
@@ -715,25 +839,45 @@ func maskStoreAPIKey(key string) string {
 }
 
 const storeUsageByEmailSQL = `
-SELECT COALESCE(o.order_no,''), COALESCE(o.product_type,''), COALESCE(o.product_snapshot->>'name',''),
+WITH email_users AS (
+  SELECT id
+  FROM users
+  WHERE lower(email)=lower($1) AND deleted_at IS NULL
+),
+email_orders AS (
+  SELECT *
+  FROM store_orders
+  WHERE lower(email)=lower($1)
+),
+email_keys AS (
+  SELECT DISTINCT k.id
+  FROM api_keys k
+  JOIN email_users eu ON eu.id = k.user_id
+  WHERE k.deleted_at IS NULL
+  UNION
+  SELECT DISTINCT api_key_id
+  FROM email_orders
+  WHERE api_key_id IS NOT NULL
+)
+SELECT COALESCE(o.order_no,''), COALESCE(o.product_type,''), COALESCE(o.product_snapshot->>'name', k.name, ''),
        COALESCE(o.delivery_status,''), o.created_at, po.paid_at, o.delivered_at,
-       COALESCE(k.id,0), COALESCE(k.key,''), COALESCE(k.status,''), COALESCE(k.quota,0)::double precision,
+       COALESCE(k.id,0), COALESCE(k.key,''), COALESCE(o.delivery_payload->>'api_key', k.key, ''), COALESCE(k.status,''), COALESCE(k.quota,0)::double precision,
        COALESCE(k.quota_used,0)::double precision, k.expires_at, k.last_used_at,
        COALESCE(u.balance,0)::double precision,
        COALESCE(SUM(l.input_tokens),0)::bigint, COALESCE(SUM(l.output_tokens),0)::bigint, COALESCE(SUM(l.total_cost),0)::double precision
-FROM store_orders o
+FROM email_keys ek
+JOIN api_keys k ON k.id=ek.id AND k.deleted_at IS NULL
+LEFT JOIN users u ON u.id=k.user_id
+LEFT JOIN email_orders o ON o.api_key_id=k.id
 LEFT JOIN payment_orders po ON po.id=o.payment_order_id
-LEFT JOIN users u ON u.id=o.user_id
-LEFT JOIN api_keys k ON k.id=o.api_key_id
 LEFT JOIN usage_logs l ON l.api_key_id=k.id
-WHERE lower(o.email)=lower($1)
 GROUP BY o.id, po.id, u.id, k.id
-ORDER BY o.created_at DESC`
+ORDER BY o.created_at DESC NULLS LAST, k.created_at DESC`
 
 const storeUsageByKeySQL = `
 SELECT COALESCE(o.order_no,''), COALESCE(o.product_type,''), COALESCE(o.product_snapshot->>'name',''),
        COALESCE(o.delivery_status,''), o.created_at, po.paid_at, o.delivered_at,
-       COALESCE(k.id,0), COALESCE(k.key,''), COALESCE(k.status,''), COALESCE(k.quota,0)::double precision,
+       COALESCE(k.id,0), COALESCE(k.key,''), COALESCE(k.key,''), COALESCE(k.status,''), COALESCE(k.quota,0)::double precision,
        COALESCE(k.quota_used,0)::double precision, k.expires_at, k.last_used_at,
        COALESCE(u.balance,0)::double precision,
        COALESCE(SUM(l.input_tokens),0)::bigint, COALESCE(SUM(l.output_tokens),0)::bigint, COALESCE(SUM(l.total_cost),0)::double precision
@@ -751,11 +895,11 @@ func scanStoreUsageRows(rows *sql.Rows) ([]StoreUsageItem, error) {
 	var out []StoreUsageItem
 	for rows.Next() {
 		var item StoreUsageItem
-		var key string
-		if err := rows.Scan(&item.OrderNo, &item.ProductType, &item.ProductName, &item.DeliveryStatus, &item.CreatedAt, &item.PaidAt, &item.DeliveredAt, &item.APIKeyID, &key, &item.KeyStatus, &item.Quota, &item.QuotaUsed, &item.ExpiresAt, &item.LastUsedAt, &item.Balance, &item.InputTokens, &item.OutputTokens, &item.TotalCost); err != nil {
+		var maskedSource string
+		if err := rows.Scan(&item.OrderNo, &item.ProductType, &item.ProductName, &item.DeliveryStatus, &item.CreatedAt, &item.PaidAt, &item.DeliveredAt, &item.APIKeyID, &maskedSource, &item.APIKey, &item.KeyStatus, &item.Quota, &item.QuotaUsed, &item.ExpiresAt, &item.LastUsedAt, &item.Balance, &item.InputTokens, &item.OutputTokens, &item.TotalCost); err != nil {
 			return nil, err
 		}
-		item.APIKeyMasked = maskStoreAPIKey(key)
+		item.APIKeyMasked = maskStoreAPIKey(maskedSource)
 		out = append(out, item)
 	}
 	return out, rows.Err()

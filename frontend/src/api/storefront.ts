@@ -1,18 +1,29 @@
 import { apiClient } from './client'
 
-export interface StoreProduct {
+export type StorefrontProductSource = 'store_product' | 'subscription_plan'
+
+export interface StorefrontProduct {
+  source: StorefrontProductSource
   id: number
-  product_type: 'api_key' | 'account' | 'sms' | 'manual'
+  product_type: 'api_key' | 'account' | 'sms' | 'manual' | 'subscription_plan'
   name: string
   description: string
   price: number
   currency: string
-  status: string
-  visibility: string
-  stock_mode: string
-  stock_count: number
-  delivery_mode: string
-  delivery_config: Record<string, any>
+  status?: string
+  visibility?: string
+  sort_order?: number
+  stock_mode?: string
+  stock_count?: number
+  delivery_mode?: string
+  delivery_config?: Record<string, any>
+  plan_id?: number
+  group_id?: number
+  group_name?: string
+  group_platform?: string
+  validity_days?: number
+  validity_unit?: string
+  key_quota_usd?: number
 }
 
 export interface StoreOrderResult {
@@ -43,6 +54,7 @@ export interface StoreUsageItem {
   paid_at?: string
   delivered_at?: string
   api_key_id?: number
+  api_key?: string
   api_key_masked?: string
   key_status?: string
   quota: number
@@ -57,7 +69,7 @@ export interface StoreUsageItem {
 
 export const storefrontAPI = {
   listProducts() {
-    return apiClient.get<StoreProduct[]>('/storefront/products')
+    return apiClient.get<StorefrontProduct[]>('/storefront/products')
   },
 
   createOrder(data: { email: string; product_id: number; payment_type?: string; return_url?: string; is_mobile?: boolean }) {

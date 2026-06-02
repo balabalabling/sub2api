@@ -1169,7 +1169,13 @@ onMounted(async () => {
     // Handle renewal navigation: ?tab=subscription&group=123
     if (route.query.tab === 'subscription') {
       activeTab.value = 'subscription'
-      if (route.query.group) {
+      if (route.query.plan_id) {
+        const planId = Number(route.query.plan_id)
+        const plan = checkout.value.plans.find(p => p.id === planId)
+        if (plan) {
+          selectedPlan.value = plan
+        }
+      } else if (route.query.group) {
         const groupId = Number(route.query.group)
         const groupPlans = checkout.value.plans.filter(p => p.group_id === groupId)
         if (groupPlans.length === 1) {

@@ -383,6 +383,8 @@ export default {
     paymentDashboard: 'Payment Dashboard',
     paymentConfig: 'Payment Config',
     paymentPlans: 'Plans',
+    storeManagement: 'Store',
+    storeProducts: 'Products',
     channelManagement: 'Channels',
     channelPricing: 'Channel Pricing',
     channelMonitor: 'Channel Monitor',
@@ -672,6 +674,31 @@ export default {
   // Groups (shared)
   groups: {
     subscription: 'Sub'
+  },
+
+  storefront: {
+    description: 'Choose ordinary products or subscription plans. Ordinary products use Alipay checkout; plans open the subscription confirmation page.',
+    queryOrders: 'Query Orders and Usage',
+    products: 'Products',
+    empty: 'No purchasable products yet',
+    soldOut: 'Sold out',
+    checkout: 'Checkout',
+    email: 'Recipient Email',
+    creatingOrder: 'Creating order...',
+    alipayPay: 'Alipay',
+    subscriptionRedirectHint: 'Subscription plans open the confirmation page, where you can generate a new API Key or recharge an existing one.',
+    paymentCreated: 'Order created. Please complete payment; delivery will be processed automatically after payment succeeds.',
+    openCashier: 'Open Alipay Cashier',
+    queryLater: 'Query Order Later',
+    subscriptionSource: 'Subscription Plan',
+    days: ' days',
+    months: ' months',
+    years: ' years',
+    unlimitedKeyQuota: 'Unlimited key quota',
+    keyQuota: 'Key ${quota}',
+    loadFailed: 'Failed to load products',
+    createOrderFailed: 'Failed to create order',
+    orderCreated: 'Order {orderNo} created'
   },
 
   // API Keys
@@ -4483,6 +4510,82 @@ export default {
       failedToUpdate: 'Failed to update promo code',
       failedToDelete: 'Failed to delete promo code',
       failedToLoadUsages: 'Failed to load usage records'
+    },
+
+    store: {
+      products: {
+        title: 'Store Products',
+        description: 'Manage API Key, account, SMS and manually delivered store products',
+        createProduct: 'Create Product',
+        editProduct: 'Edit Product',
+        searchPlaceholder: 'Search product name or description...',
+        allTypes: 'All Types',
+        allStatuses: 'All Statuses',
+        publicOnly: 'Public and active only',
+        empty: 'No store products yet',
+        publish: 'Publish',
+        unpublish: 'Unpublish',
+        noGroup: 'No group',
+        deliveryConfigHint: 'Enter a JSON object, for example {"template":"default"}',
+        deliveryConfigAdvancedHint: 'Common API Key delivery fields can be filled above; use this JSON area for advanced options.',
+        invalidJson: 'Delivery config must be a valid JSON object',
+        stockCountValue: 'Stock {count}',
+        createSuccess: 'Product created successfully',
+        updateSuccess: 'Product updated successfully',
+        deleteSuccess: 'Product deleted successfully',
+        saveFailed: 'Failed to save product',
+        failedToLoad: 'Failed to load products',
+        failedToDelete: 'Failed to delete product',
+        deleteConfirm: 'Delete product "{name}"? This action cannot be undone.',
+        fields: {
+          productType: 'Product Type',
+          name: 'Name',
+          description: 'Description',
+          price: 'Price',
+          currency: 'Currency',
+          status: 'Status',
+          visibility: 'Visibility',
+          sortOrder: 'Sort Order',
+          stockMode: 'Stock Mode',
+          stockCount: 'Stock Count',
+          stock: 'Stock',
+          deliveryMode: 'Delivery Mode',
+          deliveryConfig: 'Delivery Config',
+          groupId: 'API Key Group',
+          quota: 'Key Quota',
+          expiresInDays: 'Valid Days',
+          rateLimit5h: '5h Limit',
+          rateLimit1d: '1d Limit',
+          rateLimit7d: '7d Limit',
+          saleStartAt: 'Sale Starts',
+          saleEndAt: 'Sale Ends',
+          actions: 'Actions'
+        },
+        productTypes: {
+          api_key: 'API Key',
+          account: 'Account',
+          sms: 'SMS / Verification',
+          manual: 'Manual Delivery',
+          subscription_plan: 'Subscription Plan'
+        },
+        statuses: {
+          draft: 'Draft',
+          active: 'Active',
+          inactive: 'Inactive'
+        },
+        visibilities: {
+          public: 'Public',
+          hidden: 'Hidden'
+        },
+        stockModes: {
+          unlimited: 'Unlimited',
+          tracked: 'Tracked'
+        },
+        deliveryModes: {
+          auto: 'Auto',
+          manual: 'Manual'
+        }
+      }
     },
 
     // Usage Records

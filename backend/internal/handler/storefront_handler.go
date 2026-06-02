@@ -19,7 +19,7 @@ func NewStorefrontHandler(paymentService *service.PaymentService) *StorefrontHan
 }
 
 func (h *StorefrontHandler) ListProducts(c *gin.Context) {
-	products, err := h.paymentService.ListStoreProducts(c.Request.Context(), true)
+	products, err := h.paymentService.ListStorefrontProducts(c.Request.Context())
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
