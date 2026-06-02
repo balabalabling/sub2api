@@ -98,6 +98,27 @@ func (_u *SubscriptionPlanUpdate) AddPrice(v float64) *SubscriptionPlanUpdate {
 	return _u
 }
 
+// SetKeyQuotaUsd sets the "key_quota_usd" field.
+func (_u *SubscriptionPlanUpdate) SetKeyQuotaUsd(v float64) *SubscriptionPlanUpdate {
+	_u.mutation.ResetKeyQuotaUsd()
+	_u.mutation.SetKeyQuotaUsd(v)
+	return _u
+}
+
+// SetNillableKeyQuotaUsd sets the "key_quota_usd" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdate) SetNillableKeyQuotaUsd(v *float64) *SubscriptionPlanUpdate {
+	if v != nil {
+		_u.SetKeyQuotaUsd(*v)
+	}
+	return _u
+}
+
+// AddKeyQuotaUsd adds value to the "key_quota_usd" field.
+func (_u *SubscriptionPlanUpdate) AddKeyQuotaUsd(v float64) *SubscriptionPlanUpdate {
+	_u.mutation.AddKeyQuotaUsd(v)
+	return _u
+}
+
 // SetOriginalPrice sets the "original_price" field.
 func (_u *SubscriptionPlanUpdate) SetOriginalPrice(v float64) *SubscriptionPlanUpdate {
 	_u.mutation.ResetOriginalPrice()
@@ -320,6 +341,12 @@ func (_u *SubscriptionPlanUpdate) sqlSave(ctx context.Context) (_node int, err e
 	if value, ok := _u.mutation.AddedPrice(); ok {
 		_spec.AddField(subscriptionplan.FieldPrice, field.TypeFloat64, value)
 	}
+	if value, ok := _u.mutation.KeyQuotaUsd(); ok {
+		_spec.SetField(subscriptionplan.FieldKeyQuotaUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedKeyQuotaUsd(); ok {
+		_spec.AddField(subscriptionplan.FieldKeyQuotaUsd, field.TypeFloat64, value)
+	}
 	if value, ok := _u.mutation.OriginalPrice(); ok {
 		_spec.SetField(subscriptionplan.FieldOriginalPrice, field.TypeFloat64, value)
 	}
@@ -443,6 +470,27 @@ func (_u *SubscriptionPlanUpdateOne) SetNillablePrice(v *float64) *SubscriptionP
 // AddPrice adds value to the "price" field.
 func (_u *SubscriptionPlanUpdateOne) AddPrice(v float64) *SubscriptionPlanUpdateOne {
 	_u.mutation.AddPrice(v)
+	return _u
+}
+
+// SetKeyQuotaUsd sets the "key_quota_usd" field.
+func (_u *SubscriptionPlanUpdateOne) SetKeyQuotaUsd(v float64) *SubscriptionPlanUpdateOne {
+	_u.mutation.ResetKeyQuotaUsd()
+	_u.mutation.SetKeyQuotaUsd(v)
+	return _u
+}
+
+// SetNillableKeyQuotaUsd sets the "key_quota_usd" field if the given value is not nil.
+func (_u *SubscriptionPlanUpdateOne) SetNillableKeyQuotaUsd(v *float64) *SubscriptionPlanUpdateOne {
+	if v != nil {
+		_u.SetKeyQuotaUsd(*v)
+	}
+	return _u
+}
+
+// AddKeyQuotaUsd adds value to the "key_quota_usd" field.
+func (_u *SubscriptionPlanUpdateOne) AddKeyQuotaUsd(v float64) *SubscriptionPlanUpdateOne {
+	_u.mutation.AddKeyQuotaUsd(v)
 	return _u
 }
 
@@ -697,6 +745,12 @@ func (_u *SubscriptionPlanUpdateOne) sqlSave(ctx context.Context) (_node *Subscr
 	}
 	if value, ok := _u.mutation.AddedPrice(); ok {
 		_spec.AddField(subscriptionplan.FieldPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.KeyQuotaUsd(); ok {
+		_spec.SetField(subscriptionplan.FieldKeyQuotaUsd, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedKeyQuotaUsd(); ok {
+		_spec.AddField(subscriptionplan.FieldKeyQuotaUsd, field.TypeFloat64, value)
 	}
 	if value, ok := _u.mutation.OriginalPrice(); ok {
 		_spec.SetField(subscriptionplan.FieldOriginalPrice, field.TypeFloat64, value)

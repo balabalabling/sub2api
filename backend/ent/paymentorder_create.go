@@ -211,6 +211,20 @@ func (_c *PaymentOrderCreate) SetNillableSubscriptionDays(v *int) *PaymentOrderC
 	return _c
 }
 
+// SetAPIKeyID sets the "api_key_id" field.
+func (_c *PaymentOrderCreate) SetAPIKeyID(v int64) *PaymentOrderCreate {
+	_c.mutation.SetAPIKeyID(v)
+	return _c
+}
+
+// SetNillableAPIKeyID sets the "api_key_id" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableAPIKeyID(v *int64) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetAPIKeyID(*v)
+	}
+	return _c
+}
+
 // SetProviderInstanceID sets the "provider_instance_id" field.
 func (_c *PaymentOrderCreate) SetProviderInstanceID(v string) *PaymentOrderCreate {
 	_c.mutation.SetProviderInstanceID(v)
@@ -769,6 +783,10 @@ func (_c *PaymentOrderCreate) createSpec() (*PaymentOrder, *sqlgraph.CreateSpec)
 		_spec.SetField(paymentorder.FieldSubscriptionDays, field.TypeInt, value)
 		_node.SubscriptionDays = &value
 	}
+	if value, ok := _c.mutation.APIKeyID(); ok {
+		_spec.SetField(paymentorder.FieldAPIKeyID, field.TypeInt64, value)
+		_node.APIKeyID = &value
+	}
 	if value, ok := _c.mutation.ProviderInstanceID(); ok {
 		_spec.SetField(paymentorder.FieldProviderInstanceID, field.TypeString, value)
 		_node.ProviderInstanceID = &value
@@ -1213,6 +1231,30 @@ func (u *PaymentOrderUpsert) AddSubscriptionDays(v int) *PaymentOrderUpsert {
 // ClearSubscriptionDays clears the value of the "subscription_days" field.
 func (u *PaymentOrderUpsert) ClearSubscriptionDays() *PaymentOrderUpsert {
 	u.SetNull(paymentorder.FieldSubscriptionDays)
+	return u
+}
+
+// SetAPIKeyID sets the "api_key_id" field.
+func (u *PaymentOrderUpsert) SetAPIKeyID(v int64) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldAPIKeyID, v)
+	return u
+}
+
+// UpdateAPIKeyID sets the "api_key_id" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateAPIKeyID() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldAPIKeyID)
+	return u
+}
+
+// AddAPIKeyID adds v to the "api_key_id" field.
+func (u *PaymentOrderUpsert) AddAPIKeyID(v int64) *PaymentOrderUpsert {
+	u.Add(paymentorder.FieldAPIKeyID, v)
+	return u
+}
+
+// ClearAPIKeyID clears the value of the "api_key_id" field.
+func (u *PaymentOrderUpsert) ClearAPIKeyID() *PaymentOrderUpsert {
+	u.SetNull(paymentorder.FieldAPIKeyID)
 	return u
 }
 
@@ -1925,6 +1967,34 @@ func (u *PaymentOrderUpsertOne) UpdateSubscriptionDays() *PaymentOrderUpsertOne 
 func (u *PaymentOrderUpsertOne) ClearSubscriptionDays() *PaymentOrderUpsertOne {
 	return u.Update(func(s *PaymentOrderUpsert) {
 		s.ClearSubscriptionDays()
+	})
+}
+
+// SetAPIKeyID sets the "api_key_id" field.
+func (u *PaymentOrderUpsertOne) SetAPIKeyID(v int64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetAPIKeyID(v)
+	})
+}
+
+// AddAPIKeyID adds v to the "api_key_id" field.
+func (u *PaymentOrderUpsertOne) AddAPIKeyID(v int64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddAPIKeyID(v)
+	})
+}
+
+// UpdateAPIKeyID sets the "api_key_id" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateAPIKeyID() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateAPIKeyID()
+	})
+}
+
+// ClearAPIKeyID clears the value of the "api_key_id" field.
+func (u *PaymentOrderUpsertOne) ClearAPIKeyID() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearAPIKeyID()
 	})
 }
 
@@ -2857,6 +2927,34 @@ func (u *PaymentOrderUpsertBulk) UpdateSubscriptionDays() *PaymentOrderUpsertBul
 func (u *PaymentOrderUpsertBulk) ClearSubscriptionDays() *PaymentOrderUpsertBulk {
 	return u.Update(func(s *PaymentOrderUpsert) {
 		s.ClearSubscriptionDays()
+	})
+}
+
+// SetAPIKeyID sets the "api_key_id" field.
+func (u *PaymentOrderUpsertBulk) SetAPIKeyID(v int64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetAPIKeyID(v)
+	})
+}
+
+// AddAPIKeyID adds v to the "api_key_id" field.
+func (u *PaymentOrderUpsertBulk) AddAPIKeyID(v int64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddAPIKeyID(v)
+	})
+}
+
+// UpdateAPIKeyID sets the "api_key_id" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateAPIKeyID() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateAPIKeyID()
+	})
+}
+
+// ClearAPIKeyID clears the value of the "api_key_id" field.
+func (u *PaymentOrderUpsertBulk) ClearAPIKeyID() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.ClearAPIKeyID()
 	})
 }
 

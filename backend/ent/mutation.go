@@ -20515,6 +20515,8 @@ type PaymentOrderMutation struct {
 	addsubscription_group_id *int64
 	subscription_days        *int
 	addsubscription_days     *int
+	api_key_id               *int64
+	addapi_key_id            *int64
 	provider_instance_id     *string
 	provider_key             *string
 	provider_snapshot        *map[string]interface{}
@@ -21503,6 +21505,76 @@ func (m *PaymentOrderMutation) ResetSubscriptionDays() {
 	m.subscription_days = nil
 	m.addsubscription_days = nil
 	delete(m.clearedFields, paymentorder.FieldSubscriptionDays)
+}
+
+// SetAPIKeyID sets the "api_key_id" field.
+func (m *PaymentOrderMutation) SetAPIKeyID(i int64) {
+	m.api_key_id = &i
+	m.addapi_key_id = nil
+}
+
+// APIKeyID returns the value of the "api_key_id" field in the mutation.
+func (m *PaymentOrderMutation) APIKeyID() (r int64, exists bool) {
+	v := m.api_key_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAPIKeyID returns the old "api_key_id" field's value of the PaymentOrder entity.
+// If the PaymentOrder object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *PaymentOrderMutation) OldAPIKeyID(ctx context.Context) (v *int64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAPIKeyID is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAPIKeyID requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAPIKeyID: %w", err)
+	}
+	return oldValue.APIKeyID, nil
+}
+
+// AddAPIKeyID adds i to the "api_key_id" field.
+func (m *PaymentOrderMutation) AddAPIKeyID(i int64) {
+	if m.addapi_key_id != nil {
+		*m.addapi_key_id += i
+	} else {
+		m.addapi_key_id = &i
+	}
+}
+
+// AddedAPIKeyID returns the value that was added to the "api_key_id" field in this mutation.
+func (m *PaymentOrderMutation) AddedAPIKeyID() (r int64, exists bool) {
+	v := m.addapi_key_id
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearAPIKeyID clears the value of the "api_key_id" field.
+func (m *PaymentOrderMutation) ClearAPIKeyID() {
+	m.api_key_id = nil
+	m.addapi_key_id = nil
+	m.clearedFields[paymentorder.FieldAPIKeyID] = struct{}{}
+}
+
+// APIKeyIDCleared returns if the "api_key_id" field was cleared in this mutation.
+func (m *PaymentOrderMutation) APIKeyIDCleared() bool {
+	_, ok := m.clearedFields[paymentorder.FieldAPIKeyID]
+	return ok
+}
+
+// ResetAPIKeyID resets all changes to the "api_key_id" field.
+func (m *PaymentOrderMutation) ResetAPIKeyID() {
+	m.api_key_id = nil
+	m.addapi_key_id = nil
+	delete(m.clearedFields, paymentorder.FieldAPIKeyID)
 }
 
 // SetProviderInstanceID sets the "provider_instance_id" field.
@@ -22511,7 +22583,7 @@ func (m *PaymentOrderMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *PaymentOrderMutation) Fields() []string {
-	fields := make([]string, 0, 39)
+	fields := make([]string, 0, 40)
 	if m.user != nil {
 		fields = append(fields, paymentorder.FieldUserID)
 	}
@@ -22565,6 +22637,9 @@ func (m *PaymentOrderMutation) Fields() []string {
 	}
 	if m.subscription_days != nil {
 		fields = append(fields, paymentorder.FieldSubscriptionDays)
+	}
+	if m.api_key_id != nil {
+		fields = append(fields, paymentorder.FieldAPIKeyID)
 	}
 	if m.provider_instance_id != nil {
 		fields = append(fields, paymentorder.FieldProviderInstanceID)
@@ -22673,6 +22748,8 @@ func (m *PaymentOrderMutation) Field(name string) (ent.Value, bool) {
 		return m.SubscriptionGroupID()
 	case paymentorder.FieldSubscriptionDays:
 		return m.SubscriptionDays()
+	case paymentorder.FieldAPIKeyID:
+		return m.APIKeyID()
 	case paymentorder.FieldProviderInstanceID:
 		return m.ProviderInstanceID()
 	case paymentorder.FieldProviderKey:
@@ -22760,6 +22837,8 @@ func (m *PaymentOrderMutation) OldField(ctx context.Context, name string) (ent.V
 		return m.OldSubscriptionGroupID(ctx)
 	case paymentorder.FieldSubscriptionDays:
 		return m.OldSubscriptionDays(ctx)
+	case paymentorder.FieldAPIKeyID:
+		return m.OldAPIKeyID(ctx)
 	case paymentorder.FieldProviderInstanceID:
 		return m.OldProviderInstanceID(ctx)
 	case paymentorder.FieldProviderKey:
@@ -22937,6 +23016,13 @@ func (m *PaymentOrderMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetSubscriptionDays(v)
 		return nil
+	case paymentorder.FieldAPIKeyID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAPIKeyID(v)
+		return nil
 	case paymentorder.FieldProviderInstanceID:
 		v, ok := value.(string)
 		if !ok {
@@ -23110,6 +23196,9 @@ func (m *PaymentOrderMutation) AddedFields() []string {
 	if m.addsubscription_days != nil {
 		fields = append(fields, paymentorder.FieldSubscriptionDays)
 	}
+	if m.addapi_key_id != nil {
+		fields = append(fields, paymentorder.FieldAPIKeyID)
+	}
 	if m.addrefund_amount != nil {
 		fields = append(fields, paymentorder.FieldRefundAmount)
 	}
@@ -23133,6 +23222,8 @@ func (m *PaymentOrderMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedSubscriptionGroupID()
 	case paymentorder.FieldSubscriptionDays:
 		return m.AddedSubscriptionDays()
+	case paymentorder.FieldAPIKeyID:
+		return m.AddedAPIKeyID()
 	case paymentorder.FieldRefundAmount:
 		return m.AddedRefundAmount()
 	}
@@ -23186,6 +23277,13 @@ func (m *PaymentOrderMutation) AddField(name string, value ent.Value) error {
 		}
 		m.AddSubscriptionDays(v)
 		return nil
+	case paymentorder.FieldAPIKeyID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAPIKeyID(v)
+		return nil
 	case paymentorder.FieldRefundAmount:
 		v, ok := value.(float64)
 		if !ok {
@@ -23221,6 +23319,9 @@ func (m *PaymentOrderMutation) ClearedFields() []string {
 	}
 	if m.FieldCleared(paymentorder.FieldSubscriptionDays) {
 		fields = append(fields, paymentorder.FieldSubscriptionDays)
+	}
+	if m.FieldCleared(paymentorder.FieldAPIKeyID) {
+		fields = append(fields, paymentorder.FieldAPIKeyID)
 	}
 	if m.FieldCleared(paymentorder.FieldProviderInstanceID) {
 		fields = append(fields, paymentorder.FieldProviderInstanceID)
@@ -23295,6 +23396,9 @@ func (m *PaymentOrderMutation) ClearField(name string) error {
 		return nil
 	case paymentorder.FieldSubscriptionDays:
 		m.ClearSubscriptionDays()
+		return nil
+	case paymentorder.FieldAPIKeyID:
+		m.ClearAPIKeyID()
 		return nil
 	case paymentorder.FieldProviderInstanceID:
 		m.ClearProviderInstanceID()
@@ -23396,6 +23500,9 @@ func (m *PaymentOrderMutation) ResetField(name string) error {
 		return nil
 	case paymentorder.FieldSubscriptionDays:
 		m.ResetSubscriptionDays()
+		return nil
+	case paymentorder.FieldAPIKeyID:
+		m.ResetAPIKeyID()
 		return nil
 	case paymentorder.FieldProviderInstanceID:
 		m.ResetProviderInstanceID()
@@ -30832,6 +30939,8 @@ type SubscriptionPlanMutation struct {
 	description       *string
 	price             *float64
 	addprice          *float64
+	key_quota_usd     *float64
+	addkey_quota_usd  *float64
 	original_price    *float64
 	addoriginal_price *float64
 	validity_days     *int
@@ -31130,6 +31239,62 @@ func (m *SubscriptionPlanMutation) AddedPrice() (r float64, exists bool) {
 func (m *SubscriptionPlanMutation) ResetPrice() {
 	m.price = nil
 	m.addprice = nil
+}
+
+// SetKeyQuotaUsd sets the "key_quota_usd" field.
+func (m *SubscriptionPlanMutation) SetKeyQuotaUsd(f float64) {
+	m.key_quota_usd = &f
+	m.addkey_quota_usd = nil
+}
+
+// KeyQuotaUsd returns the value of the "key_quota_usd" field in the mutation.
+func (m *SubscriptionPlanMutation) KeyQuotaUsd() (r float64, exists bool) {
+	v := m.key_quota_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldKeyQuotaUsd returns the old "key_quota_usd" field's value of the SubscriptionPlan entity.
+// If the SubscriptionPlan object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *SubscriptionPlanMutation) OldKeyQuotaUsd(ctx context.Context) (v float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldKeyQuotaUsd is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldKeyQuotaUsd requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldKeyQuotaUsd: %w", err)
+	}
+	return oldValue.KeyQuotaUsd, nil
+}
+
+// AddKeyQuotaUsd adds f to the "key_quota_usd" field.
+func (m *SubscriptionPlanMutation) AddKeyQuotaUsd(f float64) {
+	if m.addkey_quota_usd != nil {
+		*m.addkey_quota_usd += f
+	} else {
+		m.addkey_quota_usd = &f
+	}
+}
+
+// AddedKeyQuotaUsd returns the value that was added to the "key_quota_usd" field in this mutation.
+func (m *SubscriptionPlanMutation) AddedKeyQuotaUsd() (r float64, exists bool) {
+	v := m.addkey_quota_usd
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetKeyQuotaUsd resets all changes to the "key_quota_usd" field.
+func (m *SubscriptionPlanMutation) ResetKeyQuotaUsd() {
+	m.key_quota_usd = nil
+	m.addkey_quota_usd = nil
 }
 
 // SetOriginalPrice sets the "original_price" field.
@@ -31564,7 +31729,7 @@ func (m *SubscriptionPlanMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *SubscriptionPlanMutation) Fields() []string {
-	fields := make([]string, 0, 13)
+	fields := make([]string, 0, 14)
 	if m.group_id != nil {
 		fields = append(fields, subscriptionplan.FieldGroupID)
 	}
@@ -31576,6 +31741,9 @@ func (m *SubscriptionPlanMutation) Fields() []string {
 	}
 	if m.price != nil {
 		fields = append(fields, subscriptionplan.FieldPrice)
+	}
+	if m.key_quota_usd != nil {
+		fields = append(fields, subscriptionplan.FieldKeyQuotaUsd)
 	}
 	if m.original_price != nil {
 		fields = append(fields, subscriptionplan.FieldOriginalPrice)
@@ -31620,6 +31788,8 @@ func (m *SubscriptionPlanMutation) Field(name string) (ent.Value, bool) {
 		return m.Description()
 	case subscriptionplan.FieldPrice:
 		return m.Price()
+	case subscriptionplan.FieldKeyQuotaUsd:
+		return m.KeyQuotaUsd()
 	case subscriptionplan.FieldOriginalPrice:
 		return m.OriginalPrice()
 	case subscriptionplan.FieldValidityDays:
@@ -31655,6 +31825,8 @@ func (m *SubscriptionPlanMutation) OldField(ctx context.Context, name string) (e
 		return m.OldDescription(ctx)
 	case subscriptionplan.FieldPrice:
 		return m.OldPrice(ctx)
+	case subscriptionplan.FieldKeyQuotaUsd:
+		return m.OldKeyQuotaUsd(ctx)
 	case subscriptionplan.FieldOriginalPrice:
 		return m.OldOriginalPrice(ctx)
 	case subscriptionplan.FieldValidityDays:
@@ -31709,6 +31881,13 @@ func (m *SubscriptionPlanMutation) SetField(name string, value ent.Value) error 
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetPrice(v)
+		return nil
+	case subscriptionplan.FieldKeyQuotaUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetKeyQuotaUsd(v)
 		return nil
 	case subscriptionplan.FieldOriginalPrice:
 		v, ok := value.(float64)
@@ -31787,6 +31966,9 @@ func (m *SubscriptionPlanMutation) AddedFields() []string {
 	if m.addprice != nil {
 		fields = append(fields, subscriptionplan.FieldPrice)
 	}
+	if m.addkey_quota_usd != nil {
+		fields = append(fields, subscriptionplan.FieldKeyQuotaUsd)
+	}
 	if m.addoriginal_price != nil {
 		fields = append(fields, subscriptionplan.FieldOriginalPrice)
 	}
@@ -31808,6 +31990,8 @@ func (m *SubscriptionPlanMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedGroupID()
 	case subscriptionplan.FieldPrice:
 		return m.AddedPrice()
+	case subscriptionplan.FieldKeyQuotaUsd:
+		return m.AddedKeyQuotaUsd()
 	case subscriptionplan.FieldOriginalPrice:
 		return m.AddedOriginalPrice()
 	case subscriptionplan.FieldValidityDays:
@@ -31836,6 +32020,13 @@ func (m *SubscriptionPlanMutation) AddField(name string, value ent.Value) error 
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddPrice(v)
+		return nil
+	case subscriptionplan.FieldKeyQuotaUsd:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddKeyQuotaUsd(v)
 		return nil
 	case subscriptionplan.FieldOriginalPrice:
 		v, ok := value.(float64)
@@ -31905,6 +32096,9 @@ func (m *SubscriptionPlanMutation) ResetField(name string) error {
 		return nil
 	case subscriptionplan.FieldPrice:
 		m.ResetPrice()
+		return nil
+	case subscriptionplan.FieldKeyQuotaUsd:
+		m.ResetKeyQuotaUsd()
 		return nil
 	case subscriptionplan.FieldOriginalPrice:
 		m.ResetOriginalPrice()

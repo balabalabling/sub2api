@@ -21,6 +21,8 @@ const (
 	FieldDescription = "description"
 	// FieldPrice holds the string denoting the price field in the database.
 	FieldPrice = "price"
+	// FieldKeyQuotaUsd holds the string denoting the key_quota_usd field in the database.
+	FieldKeyQuotaUsd = "key_quota_usd"
 	// FieldOriginalPrice holds the string denoting the original_price field in the database.
 	FieldOriginalPrice = "original_price"
 	// FieldValidityDays holds the string denoting the validity_days field in the database.
@@ -50,6 +52,7 @@ var Columns = []string{
 	FieldName,
 	FieldDescription,
 	FieldPrice,
+	FieldKeyQuotaUsd,
 	FieldOriginalPrice,
 	FieldValidityDays,
 	FieldValidityUnit,
@@ -76,6 +79,8 @@ var (
 	NameValidator func(string) error
 	// DefaultDescription holds the default value on creation for the "description" field.
 	DefaultDescription string
+	// DefaultKeyQuotaUsd holds the default value on creation for the "key_quota_usd" field.
+	DefaultKeyQuotaUsd float64
 	// DefaultValidityDays holds the default value on creation for the "validity_days" field.
 	DefaultValidityDays int
 	// DefaultValidityUnit holds the default value on creation for the "validity_unit" field.
@@ -126,6 +131,11 @@ func ByDescription(opts ...sql.OrderTermOption) OrderOption {
 // ByPrice orders the results by the price field.
 func ByPrice(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldPrice, opts...).ToFunc()
+}
+
+// ByKeyQuotaUsd orders the results by the key_quota_usd field.
+func ByKeyQuotaUsd(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldKeyQuotaUsd, opts...).ToFunc()
 }
 
 // ByOriginalPrice orders the results by the original_price field.

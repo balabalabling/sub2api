@@ -74,6 +74,11 @@ func Price(v float64) predicate.SubscriptionPlan {
 	return predicate.SubscriptionPlan(sql.FieldEQ(FieldPrice, v))
 }
 
+// KeyQuotaUsd applies equality check predicate on the "key_quota_usd" field. It's identical to KeyQuotaUsdEQ.
+func KeyQuotaUsd(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldKeyQuotaUsd, v))
+}
+
 // OriginalPrice applies equality check predicate on the "original_price" field. It's identical to OriginalPriceEQ.
 func OriginalPrice(v float64) predicate.SubscriptionPlan {
 	return predicate.SubscriptionPlan(sql.FieldEQ(FieldOriginalPrice, v))
@@ -327,6 +332,46 @@ func PriceLT(v float64) predicate.SubscriptionPlan {
 // PriceLTE applies the LTE predicate on the "price" field.
 func PriceLTE(v float64) predicate.SubscriptionPlan {
 	return predicate.SubscriptionPlan(sql.FieldLTE(FieldPrice, v))
+}
+
+// KeyQuotaUsdEQ applies the EQ predicate on the "key_quota_usd" field.
+func KeyQuotaUsdEQ(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldEQ(FieldKeyQuotaUsd, v))
+}
+
+// KeyQuotaUsdNEQ applies the NEQ predicate on the "key_quota_usd" field.
+func KeyQuotaUsdNEQ(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNEQ(FieldKeyQuotaUsd, v))
+}
+
+// KeyQuotaUsdIn applies the In predicate on the "key_quota_usd" field.
+func KeyQuotaUsdIn(vs ...float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldIn(FieldKeyQuotaUsd, vs...))
+}
+
+// KeyQuotaUsdNotIn applies the NotIn predicate on the "key_quota_usd" field.
+func KeyQuotaUsdNotIn(vs ...float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldNotIn(FieldKeyQuotaUsd, vs...))
+}
+
+// KeyQuotaUsdGT applies the GT predicate on the "key_quota_usd" field.
+func KeyQuotaUsdGT(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldGT(FieldKeyQuotaUsd, v))
+}
+
+// KeyQuotaUsdGTE applies the GTE predicate on the "key_quota_usd" field.
+func KeyQuotaUsdGTE(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldGTE(FieldKeyQuotaUsd, v))
+}
+
+// KeyQuotaUsdLT applies the LT predicate on the "key_quota_usd" field.
+func KeyQuotaUsdLT(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldLT(FieldKeyQuotaUsd, v))
+}
+
+// KeyQuotaUsdLTE applies the LTE predicate on the "key_quota_usd" field.
+func KeyQuotaUsdLTE(v float64) predicate.SubscriptionPlan {
+	return predicate.SubscriptionPlan(sql.FieldLTE(FieldKeyQuotaUsd, v))
 }
 
 // OriginalPriceEQ applies the EQ predicate on the "original_price" field.

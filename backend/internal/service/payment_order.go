@@ -149,14 +149,14 @@ func (s *PaymentService) validateSubOrder(ctx context.Context, req CreateOrderRe
 		if req.APIKeyID <= 0 {
 			return nil, infraerrors.BadRequest("INVALID_INPUT", "api key recharge requires an api key")
 		}
-		exists, err := s.entClient.APIKey.Query().
+		key, err := s.entClient.APIKey.Query().
 			Where(apikey.IDEQ(req.APIKeyID), apikey.UserIDEQ(req.UserID), apikey.DeletedAtIsNil()).
-			Exist(ctx)
+			Only(ctx)
 		if err != nil {
 			return nil, fmt.Errorf("check api key ownership: %w", err)
 		}
-		if !exists {
-			return nil, infraerrors.NotFound("API_KEY_NOT_FOUND", "api key not found")
+		if key.GroupID == nil || *key.GroupID != plan.GroupID {
+			return nil, infraerrors.BadRequest("API_KEY_GROUP_MISMATCH", "api key group does not match plan group")
 		}
 	}
 	return plan, nil

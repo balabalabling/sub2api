@@ -54,6 +54,20 @@ func (_c *SubscriptionPlanCreate) SetPrice(v float64) *SubscriptionPlanCreate {
 	return _c
 }
 
+// SetKeyQuotaUsd sets the "key_quota_usd" field.
+func (_c *SubscriptionPlanCreate) SetKeyQuotaUsd(v float64) *SubscriptionPlanCreate {
+	_c.mutation.SetKeyQuotaUsd(v)
+	return _c
+}
+
+// SetNillableKeyQuotaUsd sets the "key_quota_usd" field if the given value is not nil.
+func (_c *SubscriptionPlanCreate) SetNillableKeyQuotaUsd(v *float64) *SubscriptionPlanCreate {
+	if v != nil {
+		_c.SetKeyQuotaUsd(*v)
+	}
+	return _c
+}
+
 // SetOriginalPrice sets the "original_price" field.
 func (_c *SubscriptionPlanCreate) SetOriginalPrice(v float64) *SubscriptionPlanCreate {
 	_c.mutation.SetOriginalPrice(v)
@@ -219,6 +233,10 @@ func (_c *SubscriptionPlanCreate) defaults() {
 		v := subscriptionplan.DefaultDescription
 		_c.mutation.SetDescription(v)
 	}
+	if _, ok := _c.mutation.KeyQuotaUsd(); !ok {
+		v := subscriptionplan.DefaultKeyQuotaUsd
+		_c.mutation.SetKeyQuotaUsd(v)
+	}
 	if _, ok := _c.mutation.ValidityDays(); !ok {
 		v := subscriptionplan.DefaultValidityDays
 		_c.mutation.SetValidityDays(v)
@@ -271,6 +289,9 @@ func (_c *SubscriptionPlanCreate) check() error {
 	}
 	if _, ok := _c.mutation.Price(); !ok {
 		return &ValidationError{Name: "price", err: errors.New(`ent: missing required field "SubscriptionPlan.price"`)}
+	}
+	if _, ok := _c.mutation.KeyQuotaUsd(); !ok {
+		return &ValidationError{Name: "key_quota_usd", err: errors.New(`ent: missing required field "SubscriptionPlan.key_quota_usd"`)}
 	}
 	if _, ok := _c.mutation.ValidityDays(); !ok {
 		return &ValidationError{Name: "validity_days", err: errors.New(`ent: missing required field "SubscriptionPlan.validity_days"`)}
@@ -348,6 +369,10 @@ func (_c *SubscriptionPlanCreate) createSpec() (*SubscriptionPlan, *sqlgraph.Cre
 	if value, ok := _c.mutation.Price(); ok {
 		_spec.SetField(subscriptionplan.FieldPrice, field.TypeFloat64, value)
 		_node.Price = value
+	}
+	if value, ok := _c.mutation.KeyQuotaUsd(); ok {
+		_spec.SetField(subscriptionplan.FieldKeyQuotaUsd, field.TypeFloat64, value)
+		_node.KeyQuotaUsd = value
 	}
 	if value, ok := _c.mutation.OriginalPrice(); ok {
 		_spec.SetField(subscriptionplan.FieldOriginalPrice, field.TypeFloat64, value)
@@ -494,6 +519,24 @@ func (u *SubscriptionPlanUpsert) UpdatePrice() *SubscriptionPlanUpsert {
 // AddPrice adds v to the "price" field.
 func (u *SubscriptionPlanUpsert) AddPrice(v float64) *SubscriptionPlanUpsert {
 	u.Add(subscriptionplan.FieldPrice, v)
+	return u
+}
+
+// SetKeyQuotaUsd sets the "key_quota_usd" field.
+func (u *SubscriptionPlanUpsert) SetKeyQuotaUsd(v float64) *SubscriptionPlanUpsert {
+	u.Set(subscriptionplan.FieldKeyQuotaUsd, v)
+	return u
+}
+
+// UpdateKeyQuotaUsd sets the "key_quota_usd" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsert) UpdateKeyQuotaUsd() *SubscriptionPlanUpsert {
+	u.SetExcluded(subscriptionplan.FieldKeyQuotaUsd)
+	return u
+}
+
+// AddKeyQuotaUsd adds v to the "key_quota_usd" field.
+func (u *SubscriptionPlanUpsert) AddKeyQuotaUsd(v float64) *SubscriptionPlanUpsert {
+	u.Add(subscriptionplan.FieldKeyQuotaUsd, v)
 	return u
 }
 
@@ -729,6 +772,27 @@ func (u *SubscriptionPlanUpsertOne) AddPrice(v float64) *SubscriptionPlanUpsertO
 func (u *SubscriptionPlanUpsertOne) UpdatePrice() *SubscriptionPlanUpsertOne {
 	return u.Update(func(s *SubscriptionPlanUpsert) {
 		s.UpdatePrice()
+	})
+}
+
+// SetKeyQuotaUsd sets the "key_quota_usd" field.
+func (u *SubscriptionPlanUpsertOne) SetKeyQuotaUsd(v float64) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetKeyQuotaUsd(v)
+	})
+}
+
+// AddKeyQuotaUsd adds v to the "key_quota_usd" field.
+func (u *SubscriptionPlanUpsertOne) AddKeyQuotaUsd(v float64) *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.AddKeyQuotaUsd(v)
+	})
+}
+
+// UpdateKeyQuotaUsd sets the "key_quota_usd" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertOne) UpdateKeyQuotaUsd() *SubscriptionPlanUpsertOne {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateKeyQuotaUsd()
 	})
 }
 
@@ -1150,6 +1214,27 @@ func (u *SubscriptionPlanUpsertBulk) AddPrice(v float64) *SubscriptionPlanUpsert
 func (u *SubscriptionPlanUpsertBulk) UpdatePrice() *SubscriptionPlanUpsertBulk {
 	return u.Update(func(s *SubscriptionPlanUpsert) {
 		s.UpdatePrice()
+	})
+}
+
+// SetKeyQuotaUsd sets the "key_quota_usd" field.
+func (u *SubscriptionPlanUpsertBulk) SetKeyQuotaUsd(v float64) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.SetKeyQuotaUsd(v)
+	})
+}
+
+// AddKeyQuotaUsd adds v to the "key_quota_usd" field.
+func (u *SubscriptionPlanUpsertBulk) AddKeyQuotaUsd(v float64) *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.AddKeyQuotaUsd(v)
+	})
+}
+
+// UpdateKeyQuotaUsd sets the "key_quota_usd" field to the value that was provided on create.
+func (u *SubscriptionPlanUpsertBulk) UpdateKeyQuotaUsd() *SubscriptionPlanUpsertBulk {
+	return u.Update(func(s *SubscriptionPlanUpsert) {
+		s.UpdateKeyQuotaUsd()
 	})
 }
 
