@@ -338,7 +338,8 @@ function readCachedQuerySession() {
     const parsed = JSON.parse(raw) as { email?: string; queryToken?: string; savedAt?: number }
     if (!parsed.email || !parsed.queryToken) return
     email.value = parsed.email
-  } catch {
+  } catch (err) {
+    console.debug('Failed to read cached storefront query session', err)
   }
 }
 
