@@ -9,6 +9,7 @@ const REASON_MESSAGES: Record<string, string> = {
   PLAN_NOT_AVAILABLE: '套餐不存在或暂不可购买。',
   GROUP_NOT_FOUND: '套餐对应分组暂不可用。',
   INVALID_INPUT: '提交的信息不完整，请检查后重试。',
+  INVALID_RETURN_URL: '支付回跳地址无效，请刷新页面后重试。',
 }
 
 const MESSAGE_PATTERNS: Array<[RegExp, string]> = [
@@ -22,6 +23,8 @@ const MESSAGE_PATTERNS: Array<[RegExp, string]> = [
   [/product not found/i, REASON_MESSAGES.PRODUCT_NOT_FOUND],
   [/plan not found or not for sale/i, REASON_MESSAGES.PLAN_NOT_AVAILABLE],
   [/subscription group is no longer available/i, REASON_MESSAGES.GROUP_NOT_FOUND],
+  [/return_url must target the canonical internal payment result page/i, REASON_MESSAGES.INVALID_RETURN_URL],
+  [/return_url must/i, REASON_MESSAGES.INVALID_RETURN_URL],
 ]
 
 export function storefrontErrorMessage(error: unknown, fallback: string): string {

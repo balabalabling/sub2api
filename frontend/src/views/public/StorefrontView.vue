@@ -372,7 +372,7 @@ async function createOrder() {
       source: selectedProduct.value.source,
       plan_id: selectedProduct.value.source === 'subscription_plan' ? (selectedProduct.value.plan_id || selectedProduct.value.id) : undefined,
       payment_type: 'alipay',
-      return_url: `${window.location.origin}/storefront/query`
+      return_url: `${window.location.origin}/payment/result`
     })
     payment.value = data
     message.value = t('storefront.orderCreated', { orderNo: data.store_order.order_no })
