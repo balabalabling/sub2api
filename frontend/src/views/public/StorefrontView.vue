@@ -196,7 +196,6 @@
             </div>
             <RouterLink to="/storefront/query" class="btn btn-primary mt-3 block text-center py-3">查看订单</RouterLink>
             <button class="btn btn-secondary mt-3 w-full py-3" @click="copyQueryEmail">复制查询邮箱</button>
-            <RouterLink to="/storefront/query" class="btn btn-secondary mt-3 block text-center py-3">下载脚本</RouterLink>
           </div>
         </div>
       </div>
