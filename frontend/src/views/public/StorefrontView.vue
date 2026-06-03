@@ -71,9 +71,6 @@
               <h2 class="text-lg font-semibold">{{ t('storefront.products') }}</h2>
               <p class="text-sm text-gray-500 dark:text-gray-400">订阅套餐和普通商品统一展示，选择后在右侧确认购买信息。</p>
             </div>
-            <span v-if="hasCachedEmail" class="text-xs font-medium text-primary-600 dark:text-primary-400">
-              已使用缓存邮箱：{{ email }}
-            </span>
           </div>
           <div v-if="products.length === 0" class="card p-8 text-center text-gray-500 dark:text-gray-400">
             {{ t('storefront.empty') }}
@@ -166,15 +163,6 @@
               <span class="mb-1 block text-sm font-medium">{{ t('storefront.email') }}</span>
               <input v-model.trim="email" type="email" required class="input" placeholder="you@example.com">
             </label>
-            <div v-if="selectedProduct?.source === 'subscription_plan' && !hasCachedEmail" class="rounded-lg border border-dashed border-gray-200 p-3 dark:border-dark-700">
-              <div class="grid gap-2 sm:grid-cols-[1fr_auto]">
-                <input ref="emailCodeInput" v-model.trim="emailCode" class="input" :placeholder="t('storefront.emailCodePlaceholder')" maxlength="6">
-                <button type="button" class="btn btn-secondary whitespace-nowrap px-4" :disabled="sendingCode || codeCooldown > 0 || !email" @click="sendEmailCode">
-                  {{ sendingCode ? t('storefront.sendingCode') : codeCooldown > 0 ? t('storefront.resendIn', { seconds: codeCooldown }) : t('storefront.sendCode') }}
-                </button>
-              </div>
-              <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">{{ t('storefront.subscriptionEmailVerifyHint') }}</p>
-            </div>
             <button v-if="selectedProduct?.source !== 'subscription_plan'" class="btn btn-primary w-full py-3" :disabled="submitting || !selectedProduct || isSoldOut(selectedProduct)">
               {{ submitting ? t('storefront.creatingOrder') : cardActionLabel(selectedProduct) }}
             </button>
@@ -182,7 +170,7 @@
               v-if="selectedProduct?.source === 'subscription_plan'"
               type="submit"
               class="btn btn-primary w-full py-3"
-              :disabled="submitting || !email || (!hasCachedEmail && !emailCode)"
+              :disabled="submitting || !email"
             >
               {{ submitting ? t('storefront.creatingOrder') : cardActionLabel(selectedProduct) }}
             </button>
@@ -230,9 +218,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { storefrontAPI, type StorefrontProduct, type StoreOrderResult } from '@/api/storefront'
+import { storefrontErrorMessage } from '@/utils/storefrontErrors'
 
 const { t } = useI18n()
 const QUERY_CACHE_KEY = 'storefront.query.session.v1'
@@ -240,17 +229,11 @@ const QUERY_SESSION_KEY = 'storefront.query.session.temp.v1'
 const products = ref<StorefrontProduct[]>([])
 const selectedProduct = ref<StorefrontProduct | null>(null)
 const email = ref('')
-const emailCode = ref('')
 const loading = ref(false)
 const submitting = ref(false)
-const sendingCode = ref(false)
-const codeCooldown = ref(0)
 const message = ref('')
 const loadError = ref('')
 const payment = ref<StoreOrderResult | null>(null)
-const cachedQueryToken = ref('')
-const emailCodeInput = ref<HTMLInputElement | null>(null)
-let codeCooldownTimer: ReturnType<typeof setInterval> | null = null
 
 const faqs = [
   { question: '支付后多久交付？', answer: 'API Key 和订阅套餐通常会在支付成功后自动交付；人工商品会按商品说明处理。' },
@@ -258,8 +241,6 @@ const faqs = [
   { question: '安装脚本和配置脚本有什么区别？', answer: '安装脚本用于安装客户端或工具；配置脚本会写入具体订单对应的 API Key。' },
   { question: '生成新 Key 和充值已有 Key 怎么选？', answer: '首次购买建议生成新 Key；已有同分组 Key 时可选择充值，额度会增加并按规则更新有效期。' }
 ]
-
-const hasCachedEmail = computed(() => !!email.value && !!cachedQueryToken.value)
 
 function formatMoney(price: number, currency: string) {
   return `${currency || 'CNY'} ${Number(price || 0).toFixed(2)}`
@@ -357,30 +338,8 @@ function readCachedQuerySession() {
     const parsed = JSON.parse(raw) as { email?: string; queryToken?: string; savedAt?: number }
     if (!parsed.email || !parsed.queryToken) return
     email.value = parsed.email
-    cachedQueryToken.value = parsed.queryToken
   } catch {
-    cachedQueryToken.value = ''
   }
-}
-
-function startCodeCooldown(seconds = 60) {
-  codeCooldown.value = Math.max(0, Math.ceil(seconds))
-  if (codeCooldownTimer) {
-    clearInterval(codeCooldownTimer)
-  }
-  codeCooldownTimer = setInterval(() => {
-    codeCooldown.value = Math.max(0, codeCooldown.value - 1)
-    if (codeCooldown.value <= 0 && codeCooldownTimer) {
-      clearInterval(codeCooldownTimer)
-      codeCooldownTimer = null
-    }
-  }, 1000)
-}
-
-function retryAfterFromError(err: any) {
-  const raw = err?.metadata?.retry_after
-  const value = Number(raw)
-  return Number.isFinite(value) && value > 0 ? value : 60
 }
 
 async function loadProducts() {
@@ -395,44 +354,10 @@ async function loadProducts() {
   } catch (err: any) {
     products.value = []
     selectedProduct.value = null
-    loadError.value = err?.message || t('storefront.loadFailed')
+    loadError.value = storefrontErrorMessage(err, t('storefront.loadFailed'))
   } finally {
     loading.value = false
   }
-}
-
-async function sendEmailCode() {
-  if (!email.value) return
-  sendingCode.value = true
-  message.value = ''
-  try {
-    await storefrontAPI.sendQueryCode(email.value)
-    startCodeCooldown()
-    message.value = t('storefront.emailCodeSent')
-    await nextTick()
-    emailCodeInput.value?.focus()
-  } catch (err: any) {
-    if (err?.reason === 'STORE_QUERY_CODE_TOO_FREQUENT') {
-      startCodeCooldown(retryAfterFromError(err))
-      message.value = t('storefront.emailCodeTooFrequent')
-    } else {
-      message.value = err?.reason === 'STORE_EMAIL_NOT_FOUND' ? t('storefront.emailNoValidData') : (err?.message || t('storefront.emailCodeFailed'))
-    }
-  } finally {
-    sendingCode.value = false
-  }
-}
-
-async function verifyEmailIfNeeded() {
-  if (selectedProduct.value?.source !== 'subscription_plan' || hasCachedEmail.value) return true
-  if (!email.value || !emailCode.value) return false
-  const verify = await storefrontAPI.verifyQueryCode(email.value, emailCode.value)
-  const token = verify.data?.query_token || ''
-  if (token) {
-    cachedQueryToken.value = token
-    window.sessionStorage.setItem(QUERY_SESSION_KEY, JSON.stringify({ email: email.value, queryToken: token, savedAt: Date.now() }))
-  }
-  return true
 }
 
 async function createOrder() {
@@ -440,23 +365,18 @@ async function createOrder() {
   submitting.value = true
   message.value = ''
   try {
-    if (!await verifyEmailIfNeeded()) {
-      message.value = t('storefront.emailCodeRequired')
-      return
-    }
     const { data } = await storefrontAPI.createOrder({
       email: email.value,
       product_id: selectedProduct.value.source === 'store_product' ? selectedProduct.value.id : undefined,
       source: selectedProduct.value.source,
       plan_id: selectedProduct.value.source === 'subscription_plan' ? (selectedProduct.value.plan_id || selectedProduct.value.id) : undefined,
-      query_token: selectedProduct.value.source === 'subscription_plan' ? cachedQueryToken.value : undefined,
       payment_type: 'alipay',
       return_url: `${window.location.origin}/storefront/query`
     })
     payment.value = data
     message.value = t('storefront.orderCreated', { orderNo: data.store_order.order_no })
   } catch (err: any) {
-    message.value = err?.message || t('storefront.createOrderFailed')
+    message.value = storefrontErrorMessage(err, t('storefront.createOrderFailed'))
   } finally {
     submitting.value = false
   }
@@ -475,12 +395,5 @@ async function copyQueryEmail() {
 onMounted(() => {
   readCachedQuerySession()
   void loadProducts()
-})
-
-onUnmounted(() => {
-  if (codeCooldownTimer) {
-    clearInterval(codeCooldownTimer)
-    codeCooldownTimer = null
-  }
 })
 </script>

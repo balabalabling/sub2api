@@ -350,6 +350,7 @@ import { computed, defineComponent, h, onMounted, onUnmounted, ref, type PropTyp
 import { storefrontAPI, type StoreUsageItem } from '@/api/storefront'
 import Icon from '@/components/icons/Icon.vue'
 import { downloadConfigScript } from '@/utils/configScriptDownload'
+import { storefrontErrorMessage } from '@/utils/storefrontErrors'
 
 const CACHE_KEY = 'storefront.query.session.v1'
 const SESSION_KEY = 'storefront.query.session.temp.v1'
@@ -604,7 +605,7 @@ async function sendCode() {
       startCodeCooldown(retryAfterFromError(err))
       message.value = '发送过于频繁，请稍后再试。'
     } else {
-      message.value = err?.reason === 'STORE_EMAIL_NOT_FOUND' ? '无法找到该邮箱任何有效数据。' : (err?.message || '验证码发送失败')
+      message.value = storefrontErrorMessage(err, '验证码发送失败')
     }
   } finally {
     sending.value = false
@@ -622,7 +623,7 @@ async function queryEmail() {
     items.value = Array.isArray(result.data.items) ? result.data.items : []
     message.value = items.value.length ? '' : '没有找到记录。'
   } catch (err: any) {
-    message.value = err?.message || '查询失败'
+    message.value = storefrontErrorMessage(err, '查询失败')
   } finally {
     loading.value = false
   }
@@ -638,7 +639,7 @@ async function queryCachedEmail() {
     message.value = items.value.length ? '' : '没有找到记录。'
   } catch (err: any) {
     clearCachedSession()
-    message.value = err?.message || '缓存状态已失效，请重新验证邮箱。'
+    message.value = storefrontErrorMessage(err, '缓存状态已失效，请重新验证邮箱。')
   } finally {
     loading.value = false
   }
@@ -652,7 +653,7 @@ async function queryKey() {
     items.value = Array.isArray(result.data.items) ? result.data.items : []
     message.value = items.value.length ? '' : '没有找到记录。'
   } catch (err: any) {
-    message.value = err?.message || '查询失败'
+    message.value = storefrontErrorMessage(err, '查询失败')
   } finally {
     loading.value = false
   }

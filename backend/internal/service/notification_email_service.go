@@ -856,6 +856,11 @@ func notificationEmailSampleVariables(locale string) map[string]string {
 			"subscription_group":  "Claude Pro",
 			"subscription_days":   "30",
 			"expiry_time":         "2026-06-18 12:00",
+			"order_no":            "BO202606180001",
+			"product_name":        "Codex 周卡",
+			"api_key":             "sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+			"query_email":         "user@example.com",
+			"query_note":          "请使用接收邮箱在订单查询中心获取验证码后查询订单、API Key 和用量。",
 			"days_remaining":      "3",
 			"current_balance":     "12.34",
 			"threshold":           "20.00",
@@ -902,6 +907,11 @@ func notificationEmailSampleVariables(locale string) map[string]string {
 		"subscription_group":  "Claude Pro",
 		"subscription_days":   "30",
 		"expiry_time":         "2026-06-18 12:00",
+		"order_no":            "BO202606180001",
+		"product_name":        "Codex Weekly",
+		"api_key":             "sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+		"query_email":         "user@example.com",
+		"query_note":          "Use the recipient email in the order query center to view the order, API Key, and usage.",
 		"days_remaining":      "3",
 		"current_balance":     "12.34",
 		"threshold":           "20.00",
@@ -988,7 +998,7 @@ var notificationEmailEventDefinitions = map[string]NotificationEmailEventInfo{
 		Description:  "Sent after a subscription purchase is fulfilled.",
 		Category:     "subscription",
 		Optional:     false,
-		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...), "subscription_group", "subscription_days", "expiry_time", "order_id"),
+		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...), "subscription_group", "subscription_days", "expiry_time", "order_id", "order_no", "product_name", "api_key", "query_email", "query_note"),
 	},
 	NotificationEmailEventSubscriptionExpiryReminder: {
 		Event:        NotificationEmailEventSubscriptionExpiryReminder,
@@ -1151,20 +1161,33 @@ var notificationEmailOfficialTemplates = map[string]map[string]notificationEmail
 	},
 	NotificationEmailEventSubscriptionPurchaseSuccess: {
 		notificationEmailDefaultLocale: {
-			Subject: "[{{site_name}}] Subscription purchase successful",
-			HTML: notificationEmailCard("#2563eb", "Subscription activated", `
+			Subject: "{{product_name}} Key delivery notice",
+			HTML: notificationEmailCard("#16a34a", "Key delivery notice", `
 <p>Hello {{recipient_name}},</p>
-<p>Your subscription for <strong>{{subscription_group}}</strong> has been activated for <strong>{{subscription_days}}</strong> days.</p>
-<p>Expiry time: <strong>{{expiry_time}}</strong></p>
-<p>Order ID: {{order_id}}</p>`),
+<p>Your newly purchased Key has been delivered.</p>
+<table style="width:100%;border-collapse:collapse;line-height:1.8;">
+  <tr><td style="width:96px;color:#6b7280;">Product</td><td><strong>{{product_name}}</strong></td></tr>
+  <tr><td style="color:#6b7280;">Order No.</td><td>{{order_no}}</td></tr>
+  <tr><td style="color:#6b7280;">Validity</td><td>{{subscription_days}} days, expires at {{expiry_time}}</td></tr>
+  <tr><td style="color:#6b7280;">API Key</td><td style="word-break:break-all;font-family:monospace;">{{api_key}}</td></tr>
+  <tr><td style="color:#6b7280;">Query Email</td><td>{{query_email}}</td></tr>
+</table>
+<p class="muted">{{query_note}}</p>
+<p>Please keep this email safe.</p>`),
 		},
 		notificationEmailLocaleChinese: {
-			Subject: "[{{site_name}}] 订阅购买成功",
-			HTML: notificationEmailCard("#2563eb", "订阅已开通", `
-<p>{{recipient_name}}，您好：</p>
-<p>您的 <strong>{{subscription_group}}</strong> 订阅已成功开通，有效期 <strong>{{subscription_days}}</strong> 天。</p>
-<p>到期时间：<strong>{{expiry_time}}</strong></p>
-<p>订单号：{{order_id}}</p>`),
+			Subject: "{{product_name}} Key 发货通知",
+			HTML: notificationEmailCard("#16a34a", "Key 发货通知", `
+<p>您好，您的新购 Key 已发货。</p>
+<table style="width:100%;border-collapse:collapse;line-height:1.9;">
+  <tr><td style="width:96px;color:#6b7280;">商品名称</td><td><strong>{{product_name}}</strong></td></tr>
+  <tr><td style="color:#6b7280;">订单号</td><td>{{order_no}}</td></tr>
+  <tr><td style="color:#6b7280;">有效期</td><td>{{subscription_days}} 天，到期时间 {{expiry_time}}</td></tr>
+  <tr><td style="color:#6b7280;">API Key</td><td style="word-break:break-all;font-family:monospace;">{{api_key}}</td></tr>
+  <tr><td style="color:#6b7280;">查询邮箱</td><td>{{query_email}}</td></tr>
+</table>
+<p class="muted">{{query_note}}</p>
+<p>请妥善保管本邮件中的信息。</p>`),
 		},
 	},
 	NotificationEmailEventSubscriptionExpiryReminder: {

@@ -382,9 +382,36 @@ func (s *PaymentService) sendSubscriptionPurchaseSuccessNotification(ctx context
 		"subscription_days":  "",
 		"expiry_time":        "",
 		"order_id":           strconv.FormatInt(o.ID, 10),
+		"order_no":           o.OutTradeNo,
+		"product_name":       "Subscription",
+		"api_key":            "",
+		"query_email":        o.UserEmail,
+		"query_note":         "请使用接收邮箱在订单查询中心获取验证码后查询订单、API Key 和用量。",
 	}
 	if o.SubscriptionDays != nil {
 		variables["subscription_days"] = strconv.Itoa(*o.SubscriptionDays)
+	}
+	if o.PlanID != nil {
+		if plan, err := s.planForOrder(ctx, o); err == nil && plan != nil {
+			if strings.TrimSpace(plan.ProductName) != "" {
+				variables["product_name"] = plan.ProductName
+			} else if strings.TrimSpace(plan.Name) != "" {
+				variables["product_name"] = plan.Name
+			}
+		}
+	}
+	apiKeyID := o.APIKeyID
+	if apiKeyID == nil {
+		if refreshed, err := s.entClient.PaymentOrder.Get(ctx, o.ID); err == nil && refreshed != nil {
+			apiKeyID = refreshed.APIKeyID
+		}
+	}
+	if apiKeyID != nil {
+		if key, err := s.entClient.APIKey.Query().
+			Where(apikey.IDEQ(*apiKeyID), apikey.UserIDEQ(o.UserID), apikey.DeletedAtIsNil()).
+			Only(ctx); err == nil && key != nil {
+			variables["api_key"] = key.Key
+		}
 	}
 	if o.SubscriptionGroupID != nil {
 		if s.groupRepo != nil {
@@ -466,7 +493,7 @@ func (s *PaymentService) doSub(ctx context.Context, o *dbent.PaymentOrder) error
 	if err != nil {
 		return err
 	}
-	keyID, err := s.createPlanAPIKey(ctx, o, plan, sub.ExpiresAt)
+	keyID, _, err := s.createPlanAPIKey(ctx, o, plan, sub.ExpiresAt)
 	if err != nil {
 		return err
 	}
@@ -536,10 +563,10 @@ func (s *PaymentService) planForOrder(ctx context.Context, o *dbent.PaymentOrder
 	return plan, nil
 }
 
-func (s *PaymentService) createPlanAPIKey(ctx context.Context, o *dbent.PaymentOrder, plan *dbent.SubscriptionPlan, expiresAt time.Time) (int64, error) {
+func (s *PaymentService) createPlanAPIKey(ctx context.Context, o *dbent.PaymentOrder, plan *dbent.SubscriptionPlan, expiresAt time.Time) (int64, string, error) {
 	key, err := generatePaymentAPIKey()
 	if err != nil {
-		return 0, err
+		return 0, "", err
 	}
 	name := strings.TrimSpace(plan.Name)
 	if name == "" {
@@ -557,7 +584,7 @@ func (s *PaymentService) createPlanAPIKey(ctx context.Context, o *dbent.PaymentO
 		SetExpiresAt(expiresAt).
 		Save(ctx)
 	if err != nil {
-		return 0, fmt.Errorf("create api key: %w", err)
+		return 0, "", fmt.Errorf("create api key: %w", err)
 	}
 	if s.apiKeyCacheInvalidator != nil {
 		s.apiKeyCacheInvalidator.InvalidateAuthCacheByKey(ctx, key)
@@ -568,7 +595,7 @@ func (s *PaymentService) createPlanAPIKey(ctx context.Context, o *dbent.PaymentO
 		"quota_usd":  plan.KeyQuotaUsd,
 		"expires_at": expiresAt,
 	})
-	return created.ID, nil
+	return created.ID, key, nil
 }
 
 func (s *PaymentService) rechargePlanAPIKey(ctx context.Context, o *dbent.PaymentOrder, plan *dbent.SubscriptionPlan) error {

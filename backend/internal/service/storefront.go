@@ -452,9 +452,6 @@ func (s *PaymentService) CreateStorefrontOrder(ctx context.Context, input Storef
 }
 
 func (s *PaymentService) createStorefrontSubscriptionOrder(ctx context.Context, input StorefrontCreateOrderInput, email string) (*StorefrontCreateOrderResult, error) {
-	if !verifyStoreQueryToken(email, strings.TrimSpace(input.QueryToken)) {
-		return nil, infraerrors.Forbidden("STORE_QUERY_TOKEN_REQUIRED", "email verification is required")
-	}
 	planID := input.PlanID
 	if planID <= 0 {
 		planID = input.ProductID
