@@ -32,6 +32,8 @@ import (
 // misconfigured to point at us, or when our orders table has been wiped).
 var ErrOrderNotFound = errors.New("payment order not found")
 
+var errSubscriptionPlanNotFound = errors.New("subscription plan not found")
+
 func generatePaymentAPIKey() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
@@ -476,10 +478,12 @@ func (s *PaymentService) doSub(ctx context.Context, o *dbent.PaymentOrder) error
 	if err != nil || g.Status != payment.EntityStatusActive {
 		return fmt.Errorf("group %d no longer exists or inactive", gid)
 	}
-	assigned := s.hasAuditLog(ctx, o.ID, "SUBSCRIPTION_ASSIGNED") || s.hasAuditLog(ctx, o.ID, "SUBSCRIPTION_SUCCESS")
-	if !assigned {
+	assignedAudit := s.hasAuditLog(ctx, o.ID, "SUBSCRIPTION_ASSIGNED")
+	successAudit := s.hasAuditLog(ctx, o.ID, "SUBSCRIPTION_SUCCESS")
+	var sub *UserSubscription
+	if !assignedAudit && !successAudit {
 		orderNote := fmt.Sprintf("payment order %d", o.ID)
-		_, _, err = s.subscriptionSvc.AssignOrExtendSubscription(ctx, &AssignSubscriptionInput{UserID: o.UserID, GroupID: gid, ValidityDays: days, AssignedBy: 0, Notes: orderNote})
+		sub, _, err = s.subscriptionSvc.AssignOrExtendSubscription(ctx, &AssignSubscriptionInput{UserID: o.UserID, GroupID: gid, ValidityDays: days, AssignedBy: 0, Notes: orderNote})
 		if err != nil {
 			return fmt.Errorf("assign subscription: %w", err)
 		}
@@ -487,8 +491,10 @@ func (s *PaymentService) doSub(ctx context.Context, o *dbent.PaymentOrder) error
 			"groupID":      gid,
 			"validityDays": days,
 		})
-	} else {
+	} else if assignedAudit {
 		slog.Info("subscription already assigned for order, skipping", "orderID", o.ID, "groupID", gid)
+	} else {
+		slog.Info("subscription already completed for order, skipping", "orderID", o.ID, "groupID", gid)
 	}
 	if o.APIKeyID != nil {
 		slog.Info("api key already generated for subscription order, skipping", "orderID", o.ID, "apiKeyID", *o.APIKeyID)
@@ -500,12 +506,21 @@ func (s *PaymentService) doSub(ctx context.Context, o *dbent.PaymentOrder) error
 	if err := s.applyAffiliateRebateForOrder(ctx, o); err != nil {
 		return err
 	}
-	sub, err := s.subscriptionSvc.GetActiveSubscription(ctx, o.UserID, gid)
-	if err != nil {
-		return fmt.Errorf("get active subscription: %w", err)
+	if successAudit && !assignedAudit {
+		return s.markCompleted(ctx, o, "SUBSCRIPTION_SUCCESS")
+	}
+	if sub == nil {
+		sub, err = s.subscriptionSvc.GetActiveSubscription(ctx, o.UserID, gid)
+		if err != nil {
+			return fmt.Errorf("get active subscription: %w", err)
+		}
 	}
 	plan, err := s.planForOrder(ctx, o)
 	if err != nil {
+		if errors.Is(err, errSubscriptionPlanNotFound) {
+			slog.Warn("subscription plan not found for order, skipping api key creation", "orderID", o.ID, "planID", o.PlanID)
+			return s.markCompleted(ctx, o, "SUBSCRIPTION_SUCCESS")
+		}
 		return err
 	}
 	keyID, _, err := s.createPlanAPIKey(ctx, o, plan, sub.ExpiresAt)
@@ -573,6 +588,9 @@ func (s *PaymentService) planForOrder(ctx context.Context, o *dbent.PaymentOrder
 	}
 	plan, err := s.entClient.SubscriptionPlan.Query().Where(subscriptionplan.IDEQ(*o.PlanID)).Only(ctx)
 	if err != nil {
+		if dbent.IsNotFound(err) {
+			return nil, fmt.Errorf("get subscription plan: %w", errSubscriptionPlanNotFound)
+		}
 		return nil, fmt.Errorf("get subscription plan: %w", err)
 	}
 	return plan, nil

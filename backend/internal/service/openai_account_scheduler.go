@@ -56,6 +56,7 @@ type OpenAIAccountScheduleRequest struct {
 	RequiredImageCapability OpenAIImagesCapability
 	RequireCompact          bool
 	ExcludedIDs             map[int64]struct{}
+	AllowedAccountIDs       map[int64]struct{}
 }
 
 type OpenAIAccountScheduleDecision struct {
@@ -364,6 +365,10 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 		if _, excluded := req.ExcludedIDs[accountID]; excluded {
 			return nil, false, nil
 		}
+	}
+	if !openAIAccountAllowedByRoute(req.AllowedAccountIDs, accountID) {
+		_ = s.service.deleteStickySessionAccountID(ctx, req.GroupID, sessionHash)
+		return nil, false, nil
 	}
 
 	account, err := s.service.getSchedulableAccount(ctx, accountID)
@@ -966,6 +971,9 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 				continue
 			}
 		}
+		if !openAIAccountAllowedByRoute(req.AllowedAccountIDs, account.ID) {
+			continue
+		}
 		if !account.IsSchedulable() || account.Platform != normalizeOpenAICompatiblePlatform(req.Platform) || !account.IsOpenAICompatible() {
 			continue
 		}
@@ -1282,14 +1290,16 @@ func (s *OpenAIGatewayService) SelectAccountWithSchedulerForImages(
 	requestedModel string,
 	excludedIDs map[int64]struct{},
 	requiredCapability OpenAIImagesCapability,
+	allowedAccountIDs ...[]int64,
 ) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
-	selection, decision, err := s.selectAccountWithScheduler(ctx, groupID, "", sessionHash, requestedModel, excludedIDs, OpenAIUpstreamTransportHTTPSSE, "", requiredCapability, false, PlatformOpenAI)
+	routeAccountIDs := firstOpenAIAllowedAccountIDs(allowedAccountIDs)
+	selection, decision, err := s.selectAccountWithScheduler(ctx, groupID, "", sessionHash, requestedModel, excludedIDs, OpenAIUpstreamTransportHTTPSSE, "", requiredCapability, false, PlatformOpenAI, routeAccountIDs)
 	if err == nil && selection != nil && selection.Account != nil {
 		return selection, decision, nil
 	}
 	// 如果要求 native 能力（如指定了模型）但没有可用的 APIKey 账号，回退到 basic（OAuth 账号）
 	if requiredCapability == OpenAIImagesCapabilityNative {
-		return s.selectAccountWithScheduler(ctx, groupID, "", sessionHash, requestedModel, excludedIDs, OpenAIUpstreamTransportHTTPSSE, "", OpenAIImagesCapabilityBasic, false, PlatformOpenAI)
+		return s.selectAccountWithScheduler(ctx, groupID, "", sessionHash, requestedModel, excludedIDs, OpenAIUpstreamTransportHTTPSSE, "", OpenAIImagesCapabilityBasic, false, PlatformOpenAI, routeAccountIDs)
 	}
 	return selection, decision, err
 }
@@ -1306,10 +1316,12 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 	requiredImageCapability OpenAIImagesCapability,
 	requireCompact bool,
 	platform string,
+	allowedAccountIDs ...[]int64,
 ) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
 	ctx = s.withOpenAIQuotaAutoPauseContext(ctx)
 	platform = normalizeOpenAICompatiblePlatform(platform)
 	decision := OpenAIAccountScheduleDecision{}
+	allowedAccountSet := buildOpenAIAllowedAccountSet(firstOpenAIAllowedAccountIDs(allowedAccountIDs))
 	scheduler := s.getOpenAIAccountScheduler(ctx)
 	if scheduler == nil {
 		decision.Layer = openAIAccountScheduleLayerLoadBalance
@@ -1322,6 +1334,19 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 				}
 				if selection == nil || selection.Account == nil {
 					return selection, decision, nil
+				}
+				if !openAIAccountAllowedByRoute(allowedAccountSet, selection.Account.ID) {
+					if selection.ReleaseFunc != nil {
+						selection.ReleaseFunc()
+					}
+					if effectiveExcludedIDs == nil {
+						effectiveExcludedIDs = make(map[int64]struct{})
+					}
+					if _, exists := effectiveExcludedIDs[selection.Account.ID]; exists {
+						return nil, decision, ErrNoAvailableAccounts
+					}
+					effectiveExcludedIDs[selection.Account.ID] = struct{}{}
+					continue
 				}
 				if accountSupportsOpenAICapabilities(selection.Account, requiredCapability, requiredImageCapability) {
 					return selection, decision, nil
@@ -1347,6 +1372,19 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 			}
 			if selection == nil || selection.Account == nil {
 				return selection, decision, nil
+			}
+			if !openAIAccountAllowedByRoute(allowedAccountSet, selection.Account.ID) {
+				if selection.ReleaseFunc != nil {
+					selection.ReleaseFunc()
+				}
+				if effectiveExcludedIDs == nil {
+					effectiveExcludedIDs = make(map[int64]struct{})
+				}
+				if _, exists := effectiveExcludedIDs[selection.Account.ID]; exists {
+					return nil, decision, ErrNoAvailableAccounts
+				}
+				effectiveExcludedIDs[selection.Account.ID] = struct{}{}
+				continue
 			}
 			if s.isOpenAIAccountTransportCompatible(selection.Account, requiredTransport) &&
 				accountSupportsOpenAICapabilities(selection.Account, requiredCapability, requiredImageCapability) {
@@ -1391,6 +1429,7 @@ func (s *OpenAIGatewayService) selectAccountWithScheduler(
 		RequiredImageCapability: requiredImageCapability,
 		RequireCompact:          requireCompact,
 		ExcludedIDs:             excludedIDs,
+		AllowedAccountIDs:       allowedAccountSet,
 	})
 }
 
@@ -1411,6 +1450,37 @@ func cloneExcludedAccountIDs(excludedIDs map[int64]struct{}) map[int64]struct{} 
 		cloned[id] = struct{}{}
 	}
 	return cloned
+}
+
+func firstOpenAIAllowedAccountIDs(all [][]int64) []int64 {
+	if len(all) == 0 {
+		return nil
+	}
+	return all[0]
+}
+
+func buildOpenAIAllowedAccountSet(ids []int64) map[int64]struct{} {
+	if len(ids) == 0 {
+		return nil
+	}
+	set := make(map[int64]struct{}, len(ids))
+	for _, id := range ids {
+		if id > 0 {
+			set[id] = struct{}{}
+		}
+	}
+	if len(set) == 0 {
+		return nil
+	}
+	return set
+}
+
+func openAIAccountAllowedByRoute(allowed map[int64]struct{}, accountID int64) bool {
+	if len(allowed) == 0 {
+		return true
+	}
+	_, ok := allowed[accountID]
+	return ok
 }
 
 func (s *OpenAIGatewayService) isOpenAIAccountTransportCompatible(account *Account, requiredTransport OpenAIUpstreamTransport) bool {

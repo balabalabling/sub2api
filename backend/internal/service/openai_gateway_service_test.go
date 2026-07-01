@@ -568,6 +568,97 @@ func TestOpenAISelectAccountWithLoadAwareness_FiltersUnschedulableWhenNoConcurre
 	}
 }
 
+func TestOpenAISelectAccountWithSchedulerForImages_RoutedAccountsDoNotFallbackToFullPool(t *testing.T) {
+	resetOpenAIAdvancedSchedulerSettingCacheForTest()
+
+	ctx := context.Background()
+	groupID := int64(101)
+	routedButDisabled := Account{
+		ID:          1,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Status:      StatusDisabled,
+		Schedulable: true,
+		Concurrency: 1,
+		Priority:    0,
+	}
+	fullPoolHealthy := Account{
+		ID:          2,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Status:      StatusActive,
+		Schedulable: true,
+		Concurrency: 1,
+		Priority:    1,
+	}
+
+	svc := &OpenAIGatewayService{
+		accountRepo:        stubOpenAIAccountRepo{accounts: []Account{routedButDisabled, fullPoolHealthy}},
+		cache:              &stubGatewayCache{},
+		concurrencyService: NewConcurrencyService(stubConcurrencyCache{}),
+	}
+
+	selection, _, err := svc.SelectAccountWithSchedulerForImages(
+		ctx,
+		&groupID,
+		"",
+		"gpt-image-1",
+		nil,
+		OpenAIImagesCapabilityBasic,
+		[]int64{routedButDisabled.ID},
+	)
+	require.Error(t, err)
+	require.Nil(t, selection)
+	require.Contains(t, err.Error(), "no available accounts")
+}
+
+func TestOpenAISelectAccountWithSchedulerForImages_UnroutedUsesFullPool(t *testing.T) {
+	resetOpenAIAdvancedSchedulerSettingCacheForTest()
+
+	ctx := context.Background()
+	groupID := int64(102)
+	routedButDisabled := Account{
+		ID:          1,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Status:      StatusDisabled,
+		Schedulable: true,
+		Concurrency: 1,
+		Priority:    0,
+	}
+	fullPoolHealthy := Account{
+		ID:          2,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Status:      StatusActive,
+		Schedulable: true,
+		Concurrency: 1,
+		Priority:    1,
+	}
+
+	svc := &OpenAIGatewayService{
+		accountRepo:        stubOpenAIAccountRepo{accounts: []Account{routedButDisabled, fullPoolHealthy}},
+		cache:              &stubGatewayCache{},
+		concurrencyService: NewConcurrencyService(stubConcurrencyCache{}),
+	}
+
+	selection, _, err := svc.SelectAccountWithSchedulerForImages(
+		ctx,
+		&groupID,
+		"",
+		"gpt-image-1",
+		nil,
+		OpenAIImagesCapabilityBasic,
+	)
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	require.NotNil(t, selection.Account)
+	require.Equal(t, fullPoolHealthy.ID, selection.Account.ID)
+	if selection.ReleaseFunc != nil {
+		selection.ReleaseFunc()
+	}
+}
+
 func TestOpenAISelectAccountForModelWithExclusions_StickyUnschedulableClearsSession(t *testing.T) {
 	sessionHash := "session-1"
 	repo := stubOpenAIAccountRepo{

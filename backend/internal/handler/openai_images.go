@@ -106,6 +106,16 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(parsed.Stream, false)))
 
 	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, requestModel)
+	routingAccountIDs := []int64(nil)
+	if apiKey.Group != nil {
+		routingAccountIDs = apiKey.Group.GetRoutingAccountIDs(requestModel)
+		if len(routingAccountIDs) > 0 {
+			reqLog.Debug("openai.images.model_routing_matched",
+				zap.Int64s("routing_account_ids", routingAccountIDs),
+				zap.Int("routing_account_count", len(routingAccountIDs)),
+			)
+		}
+	}
 
 	if h.errorPassthroughService != nil {
 		service.BindErrorPassthroughService(c, h.errorPassthroughService)
@@ -152,6 +162,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 			requestModel,
 			failedAccountIDs,
 			parsed.RequiredCapability,
+			routingAccountIDs,
 		)
 		if err != nil {
 			reqLog.Warn("openai.images.account_select_failed",
