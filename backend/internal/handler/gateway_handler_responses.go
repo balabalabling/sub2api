@@ -85,8 +85,9 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 	setOpsRequestContext(c, reqModel, reqStream)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(reqStream, false)))
 	requestCtx := c.Request.Context()
-	if service.IsImageGenerationIntent("/v1/responses", reqModel, body) {
+	if service.IsExplicitOpenAIImageGenerationRoutingIntent("/v1/responses", reqModel, body) {
 		requestCtx = service.WithOpenAIImageGenerationIntent(requestCtx)
+		requestCtx = service.WithOpenAIImageGenerationRoutingModel(requestCtx, service.OpenAIImageGenerationRoutingModelFromBody(body))
 	}
 
 	// 解析渠道级模型映射

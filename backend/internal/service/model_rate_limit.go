@@ -108,6 +108,25 @@ func OpenAIImageGenerationIntentFromContext(ctx context.Context) bool {
 	return ok && enabled
 }
 
+func WithOpenAIImageGenerationRoutingModel(ctx context.Context, model string) context.Context {
+	model = strings.TrimSpace(model)
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if model == "" {
+		return ctx
+	}
+	return context.WithValue(ctx, ctxkey.OpenAIImageGenerationRoutingModel, model)
+}
+
+func OpenAIImageGenerationRoutingModelFromContext(ctx context.Context) string {
+	if ctx == nil {
+		return ""
+	}
+	model, _ := ctx.Value(ctxkey.OpenAIImageGenerationRoutingModel).(string)
+	return strings.TrimSpace(model)
+}
+
 func resolveFinalAntigravityModelKey(ctx context.Context, account *Account, requestedModel string) string {
 	modelKey := mapAntigravityModel(account, requestedModel)
 	if modelKey == "" {

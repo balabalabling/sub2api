@@ -2203,6 +2203,176 @@ func TestGatewayService_SelectAccountWithLoadAwareness(t *testing.T) {
 		require.Equal(t, int64(2), cache.sessionBindings[sessionHash], "粘性绑定应更新为路由选择的账号")
 	})
 
+	t.Run("OpenAI生图意图-使用gpt-image路由账号", func(t *testing.T) {
+		groupID := int64(2)
+		repo := &mockAccountRepoForPlatform{
+			accounts: []Account{
+				{ID: 7, Platform: PlatformOpenAI, Priority: 0, Status: StatusActive, Schedulable: true, Concurrency: 5, AccountGroups: []AccountGroup{{GroupID: groupID}}},
+				{ID: 9, Platform: PlatformOpenAI, Priority: 1, Status: StatusActive, Schedulable: true, Concurrency: 5, AccountGroups: []AccountGroup{{GroupID: groupID}}},
+			},
+			accountsByID: map[int64]*Account{},
+		}
+		for i := range repo.accounts {
+			repo.accountsByID[repo.accounts[i].ID] = &repo.accounts[i]
+		}
+
+		groupRepo := &mockGroupRepoForGateway{
+			groups: map[int64]*Group{
+				groupID: {
+					ID:                  groupID,
+					Platform:            PlatformOpenAI,
+					Status:              StatusActive,
+					Hydrated:            true,
+					ModelRoutingEnabled: true,
+					ModelRouting: map[string][]int64{
+						"gpt-image-*": {9},
+					},
+				},
+			},
+		}
+
+		svc := &GatewayService{
+			accountRepo: repo,
+			groupRepo:   groupRepo,
+			cache:       &mockGatewayCacheForPlatform{},
+			cfg:         testConfig(),
+		}
+
+		result, err := svc.SelectAccountWithLoadAwareness(WithOpenAIImageGenerationIntent(context.Background()), &groupID, "", "gpt-5.5", nil, "", int64(0))
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		require.NotNil(t, result.Account)
+		require.Equal(t, int64(9), result.Account.ID, "gpt-5.5 + image_generation 应匹配 gpt-image-* 路由")
+	})
+
+	t.Run("OpenAI生图意图-优先使用工具指定图片模型路由", func(t *testing.T) {
+		groupID := int64(2)
+		repo := &mockAccountRepoForPlatform{
+			accounts: []Account{
+				{ID: 8, Platform: PlatformOpenAI, Priority: 0, Status: StatusActive, Schedulable: true, Concurrency: 5, AccountGroups: []AccountGroup{{GroupID: groupID}}},
+				{ID: 9, Platform: PlatformOpenAI, Priority: 1, Status: StatusActive, Schedulable: true, Concurrency: 5, AccountGroups: []AccountGroup{{GroupID: groupID}}},
+			},
+			accountsByID: map[int64]*Account{},
+		}
+		for i := range repo.accounts {
+			repo.accountsByID[repo.accounts[i].ID] = &repo.accounts[i]
+		}
+
+		groupRepo := &mockGroupRepoForGateway{
+			groups: map[int64]*Group{
+				groupID: {
+					ID:                  groupID,
+					Platform:            PlatformOpenAI,
+					Status:              StatusActive,
+					Hydrated:            true,
+					ModelRoutingEnabled: true,
+					ModelRouting: map[string][]int64{
+						"gpt-image-1": {9},
+						"gpt-image-2": {8},
+					},
+				},
+			},
+		}
+
+		ctx := WithOpenAIImageGenerationIntent(context.Background())
+		ctx = WithOpenAIImageGenerationRoutingModel(ctx, "gpt-image-2")
+		svc := &GatewayService{
+			accountRepo: repo,
+			groupRepo:   groupRepo,
+			cache:       &mockGatewayCacheForPlatform{},
+			cfg:         testConfig(),
+		}
+
+		result, err := svc.SelectAccountWithLoadAwareness(ctx, &groupID, "", "gpt-5.5", nil, "", int64(0))
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		require.NotNil(t, result.Account)
+		require.Equal(t, int64(8), result.Account.ID)
+	})
+
+	t.Run("OpenAI普通对话-不使用gpt-image路由账号", func(t *testing.T) {
+		groupID := int64(2)
+		repo := &mockAccountRepoForPlatform{
+			accounts: []Account{
+				{ID: 7, Platform: PlatformOpenAI, Priority: 0, Status: StatusActive, Schedulable: true, Concurrency: 5, AccountGroups: []AccountGroup{{GroupID: groupID}}},
+				{ID: 9, Platform: PlatformOpenAI, Priority: 1, Status: StatusActive, Schedulable: true, Concurrency: 5, AccountGroups: []AccountGroup{{GroupID: groupID}}},
+			},
+			accountsByID: map[int64]*Account{},
+		}
+		for i := range repo.accounts {
+			repo.accountsByID[repo.accounts[i].ID] = &repo.accounts[i]
+		}
+
+		groupRepo := &mockGroupRepoForGateway{
+			groups: map[int64]*Group{
+				groupID: {
+					ID:                  groupID,
+					Platform:            PlatformOpenAI,
+					Status:              StatusActive,
+					Hydrated:            true,
+					ModelRoutingEnabled: true,
+					ModelRouting: map[string][]int64{
+						"gpt-image-*": {9},
+					},
+				},
+			},
+		}
+
+		svc := &GatewayService{
+			accountRepo: repo,
+			groupRepo:   groupRepo,
+			cache:       &mockGatewayCacheForPlatform{},
+			cfg:         testConfig(),
+		}
+
+		result, err := svc.SelectAccountWithLoadAwareness(context.Background(), &groupID, "", "gpt-5.5", nil, "", int64(0))
+		require.NoError(t, err)
+		require.NotNil(t, result)
+		require.NotNil(t, result.Account)
+		require.Equal(t, int64(7), result.Account.ID, "普通 gpt-5.5 不应命中 gpt-image-* 路由")
+	})
+
+	t.Run("OpenAI生图意图-路由账号不可用不回落全池", func(t *testing.T) {
+		groupID := int64(2)
+		repo := &mockAccountRepoForPlatform{
+			accounts: []Account{
+				{ID: 7, Platform: PlatformOpenAI, Priority: 0, Status: StatusActive, Schedulable: true, Concurrency: 5, AccountGroups: []AccountGroup{{GroupID: groupID}}},
+				{ID: 9, Platform: PlatformOpenAI, Priority: 1, Status: "inactive", Schedulable: true, Concurrency: 5, AccountGroups: []AccountGroup{{GroupID: groupID}}},
+			},
+			accountsByID: map[int64]*Account{},
+		}
+		for i := range repo.accounts {
+			repo.accountsByID[repo.accounts[i].ID] = &repo.accounts[i]
+		}
+
+		groupRepo := &mockGroupRepoForGateway{
+			groups: map[int64]*Group{
+				groupID: {
+					ID:                  groupID,
+					Platform:            PlatformOpenAI,
+					Status:              StatusActive,
+					Hydrated:            true,
+					ModelRoutingEnabled: true,
+					ModelRouting: map[string][]int64{
+						"gpt-image-*": {9},
+					},
+				},
+			},
+		}
+
+		svc := &GatewayService{
+			accountRepo: repo,
+			groupRepo:   groupRepo,
+			cache:       &mockGatewayCacheForPlatform{},
+			cfg:         testConfig(),
+		}
+
+		result, err := svc.SelectAccountWithLoadAwareness(WithOpenAIImageGenerationIntent(context.Background()), &groupID, "", "gpt-5.5", nil, "", int64(0))
+		require.Error(t, err)
+		require.Nil(t, result)
+		require.ErrorIs(t, err, ErrNoAvailableAccounts)
+	})
+
 	t.Run("无ConcurrencyService-降级到传统选择", func(t *testing.T) {
 		repo := &mockAccountRepoForPlatform{
 			accounts: []Account{

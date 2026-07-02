@@ -42,6 +42,53 @@ func IsImageGenerationIntent(endpoint string, requestedModel string, body []byte
 	return openAIJSONToolChoiceSelectsImageGeneration(gjson.GetBytes(body, "tool_choice"))
 }
 
+// IsExplicitOpenAIImageGenerationRoutingIntent is stricter than IsImageGenerationIntent for
+// pre-selection routing. It only uses client-provided signals, so server-side bridge injection
+// after account selection cannot accidentally move ordinary text requests into the image pool.
+func IsExplicitOpenAIImageGenerationRoutingIntent(endpoint string, requestedModel string, body []byte) bool {
+	if IsImageGenerationEndpoint(endpoint) {
+		return true
+	}
+	if isOpenAIImageGenerationModel(requestedModel) {
+		return true
+	}
+	if len(body) == 0 || !gjson.ValidBytes(body) {
+		return false
+	}
+	if model := strings.TrimSpace(gjson.GetBytes(body, "model").String()); isOpenAIImageGenerationModel(model) {
+		return true
+	}
+	if openAIJSONToolsContainImageGeneration(gjson.GetBytes(body, "tools")) {
+		return true
+	}
+	if openAIJSONToolChoiceSelectsImageGeneration(gjson.GetBytes(body, "tool_choice")) {
+		return true
+	}
+	return openAIRequestBodyContainsImageGenerationTrigger(body)
+}
+
+func OpenAIImageGenerationRoutingModelFromBody(body []byte) string {
+	if len(body) == 0 || !gjson.ValidBytes(body) {
+		return ""
+	}
+	tools := gjson.GetBytes(body, "tools")
+	if !tools.IsArray() {
+		return ""
+	}
+	imageModel := ""
+	tools.ForEach(func(_, item gjson.Result) bool {
+		if openAIJSONString(item.Get("type")) != "image_generation" {
+			return true
+		}
+		imageModel = openAIJSONString(item.Get("model"))
+		return false
+	})
+	if isOpenAIImageGenerationModel(imageModel) {
+		return imageModel
+	}
+	return ""
+}
+
 // IsImageGenerationIntentMap is the map-backed variant used after service-side request mutation.
 func IsImageGenerationIntentMap(endpoint string, requestedModel string, reqBody map[string]any) bool {
 	if IsImageGenerationEndpoint(endpoint) {
@@ -104,6 +151,33 @@ func openAIRequestBodyHasImageGenerationTool(body []byte) bool {
 		return false
 	}
 	return openAIJSONToolsContainImageGeneration(gjson.GetBytes(body, "tools"))
+}
+
+func openAIRequestBodyContainsImageGenerationTrigger(body []byte) bool {
+	if len(body) == 0 || !gjson.ValidBytes(body) {
+		return false
+	}
+	found := false
+	var scan func(gjson.Result) bool
+	scan = func(value gjson.Result) bool {
+		if found {
+			return false
+		}
+		switch {
+		case value.Type == gjson.String:
+			if strings.Contains(strings.ToLower(value.String()), "image_generation") {
+				found = true
+				return false
+			}
+		case value.IsArray() || value.IsObject():
+			value.ForEach(func(_, child gjson.Result) bool {
+				return scan(child)
+			})
+		}
+		return !found
+	}
+	scan(gjson.ParseBytes(body))
+	return found
 }
 
 func openAIRequestBodyImageGenerationToolNeedsNormalization(body []byte) bool {

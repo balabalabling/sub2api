@@ -64,6 +64,70 @@ func TestIsImageGenerationIntent(t *testing.T) {
 	}
 }
 
+func TestIsExplicitOpenAIImageGenerationRoutingIntent(t *testing.T) {
+	tests := []struct {
+		name     string
+		endpoint string
+		model    string
+		body     []byte
+		want     bool
+	}{
+		{
+			name:     "images endpoint",
+			endpoint: "/v1/images/generations",
+			body:     []byte(`{"model":"gpt-image-1"}`),
+			want:     true,
+		},
+		{
+			name:     "image model",
+			endpoint: "/v1/responses",
+			model:    "gpt-image-1",
+			body:     []byte(`{"model":"gpt-image-1"}`),
+			want:     true,
+		},
+		{
+			name:     "explicit image tool",
+			endpoint: "/v1/responses",
+			model:    "gpt-5.5",
+			body:     []byte(`{"model":"gpt-5.5","tools":[{"type":"image_generation"}]}`),
+			want:     true,
+		},
+		{
+			name:     "explicit trigger phrase",
+			endpoint: "/v1/responses",
+			model:    "gpt-5.5",
+			body:     []byte(`{"model":"gpt-5.5","input":"请使用 image_generation 生成图片"}`),
+			want:     true,
+		},
+		{
+			name:     "plain text request",
+			endpoint: "/v1/responses",
+			model:    "gpt-5.5",
+			body:     []byte(`{"model":"gpt-5.5","input":"写一段普通说明"}`),
+			want:     false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, IsExplicitOpenAIImageGenerationRoutingIntent(tt.endpoint, tt.model, tt.body))
+		})
+	}
+}
+
+func TestOpenAIImageGenerationRoutingModelFromBody(t *testing.T) {
+	require.Equal(t,
+		"gpt-image-2",
+		OpenAIImageGenerationRoutingModelFromBody([]byte(`{"model":"gpt-5.5","tools":[{"type":"image_generation","model":"gpt-image-2"}]}`)),
+	)
+	require.Empty(t,
+		OpenAIImageGenerationRoutingModelFromBody([]byte(`{"model":"gpt-5.5","tools":[{"type":"image_generation"}]}`)),
+	)
+	require.Empty(t,
+		OpenAIImageGenerationRoutingModelFromBody([]byte(`{"model":"gpt-5.5","tools":[{"type":"image_generation","model":"gpt-5.5"}]}`)),
+	)
+}
+
 func TestResolveOpenAIResponsesImageBillingConfigUsesCurrentBodyModel(t *testing.T) {
 	imageModel, imageSize, err := resolveOpenAIResponsesImageBillingConfigFromBody(
 		[]byte(`{"model":"mapped-image-model","tools":[{"type":"image_generation","size":"1024x1024"}]}`),

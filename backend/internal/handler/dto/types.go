@@ -129,7 +129,7 @@ type Group struct {
 type AdminGroup struct {
 	Group
 
-	// 模型路由配置（仅 anthropic 平台使用）
+	// 模型路由配置（Anthropic/OpenAI 平台使用）
 	ModelRouting        map[string][]int64 `json:"model_routing"`
 	ModelRoutingEnabled bool               `json:"model_routing_enabled"`
 

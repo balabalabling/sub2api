@@ -1764,13 +1764,16 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 		return excluded
 	}
 
-	// 获取模型路由配置（仅 anthropic 平台）
+	// 获取模型路由配置。OpenAI 的 /responses image_generation 工具请求使用 gpt-image-* 规则匹配，
+	// 但后续账号能力检查仍按原始 requestedModel 执行。
 	var routingAccountIDs []int64
-	if group != nil && requestedModel != "" && group.Platform == PlatformAnthropic {
-		routingAccountIDs = group.GetRoutingAccountIDs(requestedModel)
+	routingModel := modelRoutingLookupModel(ctx, requestedModel, platform)
+	strictRouting := strictModelRoutingNoFallback(ctx, platform)
+	if group != nil && routingModel != "" && supportsGroupModelRouting(group.Platform) && group.Platform == platform {
+		routingAccountIDs = group.GetRoutingAccountIDs(routingModel)
 		if s.debugModelRoutingEnabled() {
-			logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] context group routing: group_id=%d model=%s enabled=%v rules=%d matched_ids=%v session=%s sticky_account=%d",
-				group.ID, requestedModel, group.ModelRoutingEnabled, len(group.ModelRouting), routingAccountIDs, shortSessionHash(sessionHash), stickyAccountID)
+			logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] context group routing: group_id=%d model=%s routing_model=%s enabled=%v rules=%d matched_ids=%v session=%s sticky_account=%d strict=%v",
+				group.ID, requestedModel, routingModel, group.ModelRoutingEnabled, len(group.ModelRouting), routingAccountIDs, shortSessionHash(sessionHash), stickyAccountID, strictRouting)
 			if len(routingAccountIDs) == 0 && group.ModelRoutingEnabled && len(group.ModelRouting) > 0 {
 				keys := make([]string, 0, len(group.ModelRouting))
 				for k := range group.ModelRouting {
@@ -1781,7 +1784,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 				if len(keys) > maxKeys {
 					keys = keys[:maxKeys]
 				}
-				logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] context group routing miss: group_id=%d model=%s patterns(sample)=%v", group.ID, requestedModel, keys)
+				logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] context group routing miss: group_id=%d model=%s routing_model=%s patterns(sample)=%v", group.ID, requestedModel, routingModel, keys)
 			}
 		}
 	}
@@ -2019,8 +2022,14 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 				}
 				// 所有路由账号会话限制都已满，继续到 Layer 2 回退
 			}
-			// 路由列表中的账号都不可用（负载率 >= 100），继续到 Layer 2 回退
-			logger.LegacyPrintf("service.gateway", "[ModelRouting] All routed accounts unavailable for model=%s, falling back to normal selection", requestedModel)
+			if strictRouting {
+				logger.LegacyPrintf("service.gateway", "[ModelRouting] All routed accounts unavailable for model=%s, failing without full-pool fallback", requestedModel)
+			} else {
+				logger.LegacyPrintf("service.gateway", "[ModelRouting] All routed accounts unavailable for model=%s, falling back to normal selection", requestedModel)
+			}
+		}
+		if strictRouting {
+			return nil, ErrNoAvailableAccounts
 		}
 	}
 
@@ -2349,28 +2358,51 @@ func (s *GatewayService) ResolveGroupByID(ctx context.Context, groupID int64) (*
 	return s.resolveGroupByID(ctx, groupID)
 }
 
+const openAIImageGenerationRoutingModel = "gpt-image-1"
+
+func supportsGroupModelRouting(platform string) bool {
+	return platform == PlatformAnthropic || platform == PlatformOpenAI
+}
+
+func modelRoutingLookupModel(ctx context.Context, requestedModel string, platform string) string {
+	if platform == PlatformOpenAI && OpenAIImageGenerationIntentFromContext(ctx) {
+		if isOpenAIImageGenerationModel(requestedModel) {
+			return requestedModel
+		}
+		if imageModel := OpenAIImageGenerationRoutingModelFromContext(ctx); imageModel != "" {
+			return imageModel
+		}
+		return openAIImageGenerationRoutingModel
+	}
+	return requestedModel
+}
+
+func strictModelRoutingNoFallback(ctx context.Context, platform string) bool {
+	return platform == PlatformOpenAI && OpenAIImageGenerationIntentFromContext(ctx)
+}
+
 func (s *GatewayService) routingAccountIDsForRequest(ctx context.Context, groupID *int64, requestedModel string, platform string) []int64 {
-	if groupID == nil || requestedModel == "" || platform != PlatformAnthropic {
+	routingModel := modelRoutingLookupModel(ctx, requestedModel, platform)
+	if groupID == nil || routingModel == "" || !supportsGroupModelRouting(platform) {
 		return nil
 	}
 	group, err := s.resolveGroupByID(ctx, *groupID)
 	if err != nil || group == nil {
 		if s.debugModelRoutingEnabled() {
-			logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] resolve group failed: group_id=%v model=%s platform=%s err=%v", derefGroupID(groupID), requestedModel, platform, err)
+			logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] resolve group failed: group_id=%v model=%s routing_model=%s platform=%s err=%v", derefGroupID(groupID), requestedModel, routingModel, platform, err)
 		}
 		return nil
 	}
-	// Preserve existing behavior: model routing only applies to anthropic groups.
-	if group.Platform != PlatformAnthropic {
+	if !supportsGroupModelRouting(group.Platform) || group.Platform != platform {
 		if s.debugModelRoutingEnabled() {
-			logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] skip: non-anthropic group platform: group_id=%d group_platform=%s model=%s", group.ID, group.Platform, requestedModel)
+			logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] skip: unsupported/mismatched group platform: group_id=%d group_platform=%s request_platform=%s model=%s routing_model=%s", group.ID, group.Platform, platform, requestedModel, routingModel)
 		}
 		return nil
 	}
-	ids := group.GetRoutingAccountIDs(requestedModel)
+	ids := group.GetRoutingAccountIDs(routingModel)
 	if s.debugModelRoutingEnabled() {
-		logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] routing lookup: group_id=%d model=%s enabled=%v rules=%d matched_ids=%v",
-			group.ID, requestedModel, group.ModelRoutingEnabled, len(group.ModelRouting), ids)
+		logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] routing lookup: group_id=%d model=%s routing_model=%s enabled=%v rules=%d matched_ids=%v",
+			group.ID, requestedModel, routingModel, group.ModelRoutingEnabled, len(group.ModelRouting), ids)
 	}
 	return ids
 }
@@ -3255,6 +3287,7 @@ func shuffleWithinPriority(accounts []*Account) {
 func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, platform string) (*Account, error) {
 	preferOAuth := platform == PlatformGemini
 	routingAccountIDs := s.routingAccountIDsForRequest(ctx, groupID, requestedModel, platform)
+	strictRouting := strictModelRoutingNoFallback(ctx, platform)
 
 	// require_privacy_set: 获取分组信息
 	var schedGroup *Group
@@ -3388,6 +3421,9 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 				logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] legacy routed select: group_id=%v model=%s session=%s account=%d", derefGroupID(groupID), requestedModel, shortSessionHash(sessionHash), selected.ID)
 			}
 			return selected, nil
+		}
+		if strictRouting {
+			return nil, ErrNoAvailableAccounts
 		}
 		logger.LegacyPrintf("service.gateway", "[ModelRouting] No routed accounts available for model=%s, falling back to normal selection", requestedModel)
 	}
