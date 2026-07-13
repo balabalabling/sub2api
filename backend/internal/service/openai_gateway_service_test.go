@@ -3047,10 +3047,17 @@ func TestStripOpenAIResponsesInputNamespaces(t *testing.T) {
 	}
 
 	require.True(t, stripOpenAIResponsesInputNamespaces(body))
-	items := body["input"].([]any)
-	require.NotContains(t, items[0].(map[string]any), "namespace")
-	require.NotContains(t, items[1].(map[string]any), "namespace")
-	require.Equal(t, "preserve", items[1].(map[string]any)["output"].(map[string]any)["namespace"])
+	items, ok := body["input"].([]any)
+	require.True(t, ok)
+	firstItem, ok := items[0].(map[string]any)
+	require.True(t, ok)
+	secondItem, ok := items[1].(map[string]any)
+	require.True(t, ok)
+	nestedOutput, ok := secondItem["output"].(map[string]any)
+	require.True(t, ok)
+	require.NotContains(t, firstItem, "namespace")
+	require.NotContains(t, secondItem, "namespace")
+	require.Equal(t, "preserve", nestedOutput["namespace"])
 	require.Equal(t, "plain input item", items[2])
 }
 
