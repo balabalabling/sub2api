@@ -3036,3 +3036,30 @@ func TestHandleCompatErrorResponseCyberPolicyEarlyReturn(t *testing.T) {
 	require.NotContains(t, gotMsg, "Upstream request failed")
 	require.NotNil(t, GetOpsCyberPolicy(c))
 }
+
+func TestStripOpenAIResponsesInputNamespaces(t *testing.T) {
+	body := map[string]any{
+		"input": []any{
+			map[string]any{"type": "message", "namespace": "computer", "content": "hello"},
+			map[string]any{"type": "function_call_output", "namespace": "tools", "output": map[string]any{"namespace": "preserve"}},
+			"plain input item",
+		},
+	}
+
+	require.True(t, stripOpenAIResponsesInputNamespaces(body))
+	items := body["input"].([]any)
+	require.NotContains(t, items[0].(map[string]any), "namespace")
+	require.NotContains(t, items[1].(map[string]any), "namespace")
+	require.Equal(t, "preserve", items[1].(map[string]any)["output"].(map[string]any)["namespace"])
+	require.Equal(t, "plain input item", items[2])
+}
+
+func TestStripOpenAIResponsesInputNamespaces_NoOpForNonArrayOrMissingField(t *testing.T) {
+	for _, body := range []map[string]any{
+		{},
+		{"input": "hello"},
+		{"input": []any{map[string]any{"type": "message", "content": "hello"}}},
+	} {
+		require.False(t, stripOpenAIResponsesInputNamespaces(body))
+	}
+}

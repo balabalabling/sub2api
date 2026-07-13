@@ -2961,6 +2961,18 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		}
 	}
 
+	// Codex may attach an internal namespace to historical input items. The OpenAI
+	// Responses upstream rejects that field, so remove it before serializing.
+	if bytes.Contains(body, []byte(`"namespace"`)) {
+		decoded, decodeErr := ensureReqBody()
+		if decodeErr != nil {
+			return nil, decodeErr
+		}
+		if stripOpenAIResponsesInputNamespaces(decoded) {
+			markDecodedModified()
+		}
+	}
+
 	if bodyModified {
 		if requestView.HasPatches() {
 			if patchedBody, patchErr := requestView.ApplyPatches(); patchErr == nil {
@@ -6084,6 +6096,27 @@ func trimOpenAIEncryptedReasoningItems(reqBody map[string]any) bool {
 	default:
 		return false
 	}
+}
+
+func stripOpenAIResponsesInputNamespaces(reqBody map[string]any) bool {
+	input, ok := reqBody["input"].([]any)
+	if !ok {
+		return false
+	}
+
+	changed := false
+	for _, item := range input {
+		inputItem, ok := item.(map[string]any)
+		if !ok {
+			continue
+		}
+		if _, exists := inputItem["namespace"]; !exists {
+			continue
+		}
+		delete(inputItem, "namespace")
+		changed = true
+	}
+	return changed
 }
 
 func sanitizeEncryptedReasoningInputItem(item any) (next any, changed bool, keep bool) {
