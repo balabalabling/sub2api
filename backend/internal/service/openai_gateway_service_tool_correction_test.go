@@ -3,7 +3,116 @@ package service
 import (
 	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/require"
+	"github.com/tidwall/gjson"
 )
+
+func TestCodexToolCorrector_CustomToolCallNamespace(t *testing.T) {
+	t.Parallel()
+
+	const input = `{"cmd":"Write-Output  one  two","literal":"namespace exec must stay in input"}`
+	tests := []struct {
+		name          string
+		payload       string
+		itemPath      string
+		wantName      string
+		wantNamespace string
+	}{
+		{
+			name:     "root exec duplicate namespace",
+			payload:  `{"type":"custom_tool_call","call_id":"call_root","name":"exec","namespace":"exec","input":"` + strings.ReplaceAll(input, `"`, `\"`) + `"}`,
+			itemPath: "",
+			wantName: "exec",
+		},
+		{
+			name:     "stream item exec namespace",
+			payload:  `{"type":"response.output_item.added","item":{"type":"custom_tool_call","call_id":"call_item","name":"exec","namespace":"tools","input":"raw input"}}`,
+			itemPath: "item",
+			wantName: "exec",
+		},
+		{
+			name:     "top level output duplicate namespace",
+			payload:  `{"output":[{"type":"custom_tool_call","call_id":"call_output","name":"shell","namespace":"shell","input":"pwd"}]}`,
+			itemPath: "output.0",
+			wantName: "shell",
+		},
+		{
+			name:     "terminal response output fills missing exec name",
+			payload:  `{"type":"response.completed","response":{"output":[{"type":"custom_tool_call","call_id":"call_terminal","namespace":"exec","input":"dir"}]}}`,
+			itemPath: "response.output.0",
+			wantName: "exec",
+		},
+		{
+			name:          "non duplicate namespace remains",
+			payload:       `{"type":"custom_tool_call","call_id":"call_other","name":"search","namespace":"web","input":"query"}`,
+			itemPath:      "",
+			wantName:      "search",
+			wantNamespace: "web",
+		},
+	}
+
+	corrector := NewCodexToolCorrector()
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, changed := corrector.CorrectToolCallsInSSEBytes([]byte(tt.payload))
+			if tt.wantNamespace == "" {
+				require.True(t, changed)
+			} else {
+				require.False(t, changed)
+			}
+
+			prefix := tt.itemPath
+			if prefix != "" {
+				prefix += "."
+			}
+			require.Equal(t, tt.wantName, gjson.GetBytes(got, prefix+"name").String())
+			if tt.wantNamespace == "" {
+				require.False(t, gjson.GetBytes(got, prefix+"namespace").Exists())
+			} else {
+				require.Equal(t, tt.wantNamespace, gjson.GetBytes(got, prefix+"namespace").String())
+			}
+		})
+	}
+}
+
+func TestOpenAIGatewayService_CustomToolCallPreservesInputAndCallID(t *testing.T) {
+	t.Parallel()
+
+	service := &OpenAIGatewayService{toolCorrector: NewCodexToolCorrector()}
+	payload := []byte(`{
+		"output":[
+			{"type":"custom_tool_call","call_id":"call_same","name":"exec","namespace":"exec","input":"{\n  \"cmd\": \"echo  one  two\"\n}"},
+			{"type":"custom_tool_call_output","call_id":"call_same","output":"done"}
+		]
+	}`)
+
+	beforeInput := gjson.GetBytes(payload, "output.0.input").String()
+	got := service.correctToolCallsInResponseBody(payload)
+
+	require.Equal(t, beforeInput, gjson.GetBytes(got, "output.0.input").String())
+	require.Equal(t, "call_same", gjson.GetBytes(got, "output.0.call_id").String())
+	require.Equal(t, "call_same", gjson.GetBytes(got, "output.1.call_id").String())
+	require.False(t, gjson.GetBytes(got, "output.0.namespace").Exists())
+	require.Equal(t, "done", gjson.GetBytes(got, "output.1.output").String())
+}
+
+func TestOpenAIGatewayService_CustomToolCallNamespaceInSSEBody(t *testing.T) {
+	t.Parallel()
+
+	service := &OpenAIGatewayService{toolCorrector: NewCodexToolCorrector()}
+	body := "event: response.output_item.added\n" +
+		`data: {"type":"response.output_item.added","item":{"type":"custom_tool_call","call_id":"call_sse","name":"exec","namespace":"exec","input":"echo  unchanged"}}` + "\n\n" +
+		"event: response.completed\n" +
+		`data: {"type":"response.completed","response":{"output":[{"type":"custom_tool_call","call_id":"call_sse","name":"exec","namespace":"exec","input":"echo  unchanged"}]}}` + "\n\n"
+
+	got := service.correctToolCallsInSSEBody(body)
+
+	require.NotContains(t, got, `"namespace":"exec"`)
+	require.Equal(t, 2, strings.Count(got, `"call_id":"call_sse"`))
+	require.Equal(t, 2, strings.Count(got, `"input":"echo  unchanged"`))
+	require.Equal(t, 2, strings.Count(got, `"name":"exec"`))
+}
 
 // TestOpenAIGatewayService_ToolCorrection 测试 OpenAIGatewayService 中的工具修正集成
 func TestOpenAIGatewayService_ToolCorrection(t *testing.T) {

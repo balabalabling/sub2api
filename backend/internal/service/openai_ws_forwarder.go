@@ -397,7 +397,8 @@ func openAIWSMessageLikelyContainsToolCalls(message []byte) bool {
 	}
 	return bytes.Contains(message, []byte(`"tool_calls"`)) ||
 		bytes.Contains(message, []byte(`"tool_call"`)) ||
-		bytes.Contains(message, []byte(`"function_call"`))
+		bytes.Contains(message, []byte(`"function_call"`)) ||
+		bytes.Contains(message, []byte(`"custom_tool_call"`))
 }
 
 func parseOpenAIWSResponseUsageFromCompletedEvent(message []byte, usage *OpenAIUsage) {
@@ -2231,9 +2232,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 				message = replaceOpenAIWSMessageModel(message, mappedModel, originalModel)
 			}
 			if openAIWSEventMayContainToolCalls(eventType) && openAIWSMessageLikelyContainsToolCalls(message) {
-				if corrected, changed := s.toolCorrector.CorrectToolCallsInSSEBytes(message); changed {
-					message = corrected
-				}
+				message = s.correctToolCallsInResponseBody(message)
 			}
 		}
 		if openAIWSEventShouldParseUsage(eventType) {
@@ -3289,9 +3288,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 					upstreamMessage = replaceOpenAIWSMessageModel(upstreamMessage, mappedModel, originalModel)
 				}
 				if openAIWSEventMayContainToolCalls(eventType) && openAIWSMessageLikelyContainsToolCalls(upstreamMessage) {
-					if corrected, changed := s.toolCorrector.CorrectToolCallsInSSEBytes(upstreamMessage); changed {
-						upstreamMessage = corrected
-					}
+					upstreamMessage = s.correctToolCallsInResponseBody(upstreamMessage)
 				}
 				replayCollector.AddEvent(eventType, upstreamMessage)
 				if err := writeClientMessage(upstreamMessage); err != nil {

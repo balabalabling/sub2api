@@ -4164,7 +4164,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 					trimmedData = strings.TrimSpace(replacedData)
 				}
 			}
-			if normalizedData, normalized := normalizeOpenAIResponsesFunctionCallArguments(dataBytes); normalized {
+			if normalizedData := s.correctToolCallsInResponseBody(dataBytes); !bytes.Equal(normalizedData, dataBytes) {
 				dataBytes = normalizedData
 				trimmedData = strings.TrimSpace(string(normalizedData))
 				line = "data: " + string(normalizedData)
@@ -4328,6 +4328,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponsePassthrough(
 	if originalModel != "" && mappedModel != "" && originalModel != mappedModel {
 		body = s.replaceModelInResponseBody(body, mappedModel, originalModel)
 	}
+	body = s.correctToolCallsInResponseBody(body)
 	c.Data(resp.StatusCode, contentType, body)
 	return &openaiNonStreamingResultPassthrough{
 		OpenAIUsage:      usage,
@@ -4379,6 +4380,7 @@ func (s *OpenAIGatewayService) handlePassthroughSSEToJSON(resp *http.Response, c
 		if originalModel != "" && mappedModel != "" && originalModel != mappedModel {
 			bodyText = s.replaceModelInSSEBody(bodyText, mappedModel, originalModel)
 		}
+		bodyText = s.correctToolCallsInSSEBody(bodyText)
 		body = []byte(bodyText)
 	}
 
@@ -5152,8 +5154,8 @@ func (s *OpenAIGatewayService) handleStreamingResponse(ctx context.Context, resp
 			}
 			imageCounter.AddSSEData(dataBytes)
 
-			// Correct Codex tool calls if needed (apply_patch -> edit, etc.)
-			if correctedData, corrected := s.toolCorrector.CorrectToolCallsInSSEBytes(dataBytes); corrected {
+			// Correct Codex tool calls and Responses custom-tool routing metadata.
+			if correctedData := s.correctToolCallsInResponseBody(dataBytes); !bytes.Equal(correctedData, dataBytes) {
 				dataBytes = correctedData
 				data = string(correctedData)
 				line = "data: " + data
@@ -5462,6 +5464,9 @@ func (s *OpenAIGatewayService) correctToolCallsInResponseBody(body []byte) []byt
 	}
 
 	updated := body
+	if normalized, changed := normalizeOpenAIResponsesCustomToolNamespaces(updated); changed {
+		updated = normalized
+	}
 	if s != nil && s.toolCorrector != nil {
 		if corrected, changed := s.toolCorrector.CorrectToolCallsInSSEBytes(updated); changed {
 			updated = corrected
@@ -5471,6 +5476,25 @@ func (s *OpenAIGatewayService) correctToolCallsInResponseBody(body []byte) []byt
 		updated = normalized
 	}
 	return updated
+}
+
+func (s *OpenAIGatewayService) correctToolCallsInSSEBody(body string) string {
+	if body == "" || !strings.Contains(body, `"custom_tool_call"`) {
+		return body
+	}
+
+	lines := strings.Split(body, "\n")
+	for i, line := range lines {
+		data, ok := extractOpenAISSEDataLine(line)
+		if !ok || data == "" || data == "[DONE]" {
+			continue
+		}
+		updated := s.correctToolCallsInResponseBody([]byte(data))
+		if !bytes.Equal(updated, []byte(data)) {
+			lines[i] = "data: " + string(updated)
+		}
+	}
+	return strings.Join(lines, "\n")
 }
 
 func normalizeOpenAIResponsesFunctionCallArguments(data []byte) ([]byte, bool) {
@@ -5674,6 +5698,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, r
 	if originalModel != mappedModel {
 		body = s.replaceModelInResponseBody(body, mappedModel, originalModel)
 	}
+	body = s.correctToolCallsInResponseBody(body)
 
 	responseheaders.WriteFilteredHeaders(c.Writer.Header(), resp.Header, s.responseHeaderFilter)
 
@@ -5738,6 +5763,7 @@ func (s *OpenAIGatewayService) handleSSEToJSON(resp *http.Response, c *gin.Conte
 		if originalModel != mappedModel {
 			bodyText = s.replaceModelInSSEBody(bodyText, mappedModel, originalModel)
 		}
+		bodyText = s.correctToolCallsInSSEBody(bodyText)
 		body = []byte(bodyText)
 	}
 

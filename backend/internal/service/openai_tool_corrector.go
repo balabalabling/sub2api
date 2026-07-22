@@ -89,6 +89,10 @@ func (c *CodexToolCorrector) CorrectToolCallsInSSEBytes(data []byte) ([]byte, bo
 
 	updated := data
 	corrected := false
+	if next, changed := normalizeOpenAIResponsesCustomToolNamespaces(updated); changed {
+		updated = next
+		corrected = true
+	}
 	collect := func(changed bool, next []byte) {
 		if changed {
 			corrected = true
@@ -136,7 +140,85 @@ func mayContainToolCallPayload(data []byte) bool {
 	// 快速路径：多数 token / 文本事件不包含工具字段，避免进入 JSON 解析热路径。
 	return bytes.Contains(data, []byte(`"tool_calls"`)) ||
 		bytes.Contains(data, []byte(`"function_call"`)) ||
+		bytes.Contains(data, []byte(`"custom_tool_call"`)) ||
 		bytes.Contains(data, []byte(`"function":{"name"`))
+}
+
+// normalizeOpenAIResponsesCustomToolNamespaces removes duplicate routing
+// metadata from protocol-level custom tool calls. Codex Desktop combines
+// namespace and name, so duplicate "exec" values become an invalid route.
+func normalizeOpenAIResponsesCustomToolNamespaces(data []byte) ([]byte, bool) {
+	if len(bytes.TrimSpace(data)) == 0 ||
+		!bytes.Contains(data, []byte(`"custom_tool_call"`)) ||
+		!bytes.Contains(data, []byte(`"namespace"`)) ||
+		!gjson.ValidBytes(data) {
+		return data, false
+	}
+
+	updated := data
+	changed := false
+	joinPath := func(prefix, field string) string {
+		if prefix == "" {
+			return field
+		}
+		return prefix + "." + field
+	}
+	correctAtPath := func(prefix string) {
+		if strings.TrimSpace(gjson.GetBytes(updated, joinPath(prefix, "type")).String()) != "custom_tool_call" {
+			return
+		}
+
+		namePath := joinPath(prefix, "name")
+		namespacePath := joinPath(prefix, "namespace")
+		nameResult := gjson.GetBytes(updated, namePath)
+		namespaceResult := gjson.GetBytes(updated, namespacePath)
+		if !namespaceResult.Exists() || namespaceResult.Type != gjson.String {
+			return
+		}
+
+		name := ""
+		if nameResult.Exists() && nameResult.Type == gjson.String {
+			name = nameResult.Str
+		}
+		trimmedName := strings.TrimSpace(name)
+		trimmedNamespace := strings.TrimSpace(namespaceResult.Str)
+
+		if trimmedName == "exec" || (trimmedName == "" && trimmedNamespace == "exec") {
+			if name != "exec" {
+				next, err := sjson.SetBytes(updated, namePath, "exec")
+				if err != nil {
+					return
+				}
+				updated = next
+				changed = true
+			}
+			next, err := sjson.DeleteBytes(updated, namespacePath)
+			if err == nil {
+				updated = next
+				changed = true
+			}
+			return
+		}
+
+		if nameResult.Exists() && nameResult.Type == gjson.String && namespaceResult.Str == name {
+			next, err := sjson.DeleteBytes(updated, namespacePath)
+			if err == nil {
+				updated = next
+				changed = true
+			}
+		}
+	}
+
+	correctAtPath("")
+	correctAtPath("item")
+	for i := 0; i < int(gjson.GetBytes(updated, "output.#").Int()); i++ {
+		correctAtPath("output." + strconv.Itoa(i))
+	}
+	for i := 0; i < int(gjson.GetBytes(updated, "response.output.#").Int()); i++ {
+		correctAtPath("response.output." + strconv.Itoa(i))
+	}
+
+	return updated, changed
 }
 
 // correctToolCallsArrayAtPath 修正指定路径下 tool_calls 数组中的工具名称。

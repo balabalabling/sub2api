@@ -82,6 +82,7 @@ func TestOpenAIWSMessageLikelyContainsToolCalls(t *testing.T) {
 	require.False(t, openAIWSMessageLikelyContainsToolCalls([]byte(`{"type":"response.output_text.delta","delta":"hello"}`)))
 	require.True(t, openAIWSMessageLikelyContainsToolCalls([]byte(`{"type":"response.output_item.added","item":{"tool_calls":[{"id":"tc1"}]}}`)))
 	require.True(t, openAIWSMessageLikelyContainsToolCalls([]byte(`{"type":"response.output_item.added","item":{"type":"function_call"}}`)))
+	require.True(t, openAIWSMessageLikelyContainsToolCalls([]byte(`{"type":"response.output_item.added","item":{"type":"custom_tool_call","name":"exec","namespace":"exec"}}`)))
 }
 
 func TestReplaceOpenAIWSMessageModel_OptimizedStillCorrect(t *testing.T) {
