@@ -560,10 +560,6 @@ func (s *PaymentService) doSub(ctx context.Context, o *dbent.PaymentOrder, lease
 		slog.Info("api key already generated for subscription order, skipping", "orderID", o.ID, "apiKeyID", *o.APIKeyID)
 		return s.markCompleted(ctx, o, lease, "SUBSCRIPTION_SUCCESS")
 	}
-	sub, err := s.subscriptionSvc.GetActiveSubscription(ctx, o.UserID, gid)
-	if err != nil {
-		return fmt.Errorf("get active subscription: %w", err)
-	}
 	plan, err := s.planForOrder(ctx, o)
 	if err != nil {
 		if errors.Is(err, errSubscriptionPlanNotFound) {
@@ -571,6 +567,10 @@ func (s *PaymentService) doSub(ctx context.Context, o *dbent.PaymentOrder, lease
 			return s.markCompleted(ctx, o, lease, "SUBSCRIPTION_SUCCESS")
 		}
 		return err
+	}
+	sub, err := s.subscriptionSvc.GetActiveSubscription(ctx, o.UserID, gid)
+	if err != nil {
+		return fmt.Errorf("get active subscription: %w", err)
 	}
 	keyID, _, err := s.createPlanAPIKey(ctx, o, plan, sub.ExpiresAt)
 	if err != nil {
