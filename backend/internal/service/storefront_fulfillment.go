@@ -12,7 +12,6 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
 
@@ -27,34 +26,34 @@ func (s *PaymentService) ExecuteStoreFulfillment(ctx context.Context, oid int64)
 	if psIsRefundStatus(o.Status) {
 		return infraerrors.BadRequest("INVALID_STATUS", "refund-related order cannot fulfill")
 	}
-	if o.Status != OrderStatusPaid && o.Status != OrderStatusFailed {
+	if o.Status != OrderStatusPaid && o.Status != OrderStatusFailed && o.Status != OrderStatusRecharging {
 		return infraerrors.BadRequest("INVALID_STATUS", "order cannot fulfill in status "+o.Status)
 	}
-	c, err := s.entClient.PaymentOrder.Update().Where(paymentorder.IDEQ(oid), paymentorder.StatusIn(OrderStatusPaid, OrderStatusFailed)).SetStatus(OrderStatusRecharging).Save(ctx)
+	lease, err := s.acquirePaymentFulfillmentLease(ctx, o)
 	if err != nil {
-		return fmt.Errorf("lock: %w", err)
+		return err
 	}
-	if c == 0 {
+	if lease == nil {
 		return nil
 	}
-	if err := s.doStoreFulfillment(ctx, o); err != nil {
+	if err := s.doStoreFulfillment(ctx, o, lease); err != nil {
 		s.markStoreOrderDeliveryFailed(ctx, oid, err)
-		s.markFailed(ctx, oid, err)
+		s.markFailed(ctx, oid, lease, err)
 		return err
 	}
 	return nil
 }
 
-func (s *PaymentService) doStoreFulfillment(ctx context.Context, paymentOrder *dbent.PaymentOrder) error {
+func (s *PaymentService) doStoreFulfillment(ctx context.Context, paymentOrder *dbent.PaymentOrder, lease *paymentFulfillmentLease) error {
 	storeOrder, err := s.getStoreOrderByPaymentOrderID(ctx, paymentOrder.ID)
 	if err != nil {
 		return err
 	}
 	if storeOrder.DeliveryStatus == StoreDeliveryStatusDelivered {
-		return s.markCompleted(ctx, paymentOrder, "STORE_DELIVERY_SUCCESS")
+		return s.markCompleted(ctx, paymentOrder, lease, "STORE_DELIVERY_SUCCESS")
 	}
 	if storeOrder.DeliveryStatus == StoreDeliveryStatusManualRequired {
-		return s.markCompleted(ctx, paymentOrder, "STORE_MANUAL_REQUIRED")
+		return s.markCompleted(ctx, paymentOrder, lease, "STORE_MANUAL_REQUIRED")
 	}
 	if err := s.setStoreOrderDeliveryStatus(ctx, storeOrder.ID, StoreDeliveryStatusDelivering, ""); err != nil {
 		return err
@@ -65,13 +64,13 @@ func (s *PaymentService) doStoreFulfillment(ctx context.Context, paymentOrder *d
 		if err := s.deliverStoreAPIKey(ctx, storeOrder); err != nil {
 			return err
 		}
-		return s.markCompleted(ctx, paymentOrder, "STORE_DELIVERY_SUCCESS")
+		return s.markCompleted(ctx, paymentOrder, lease, "STORE_DELIVERY_SUCCESS")
 	default:
 		if err := s.setStoreOrderDeliveryStatus(ctx, storeOrder.ID, StoreDeliveryStatusManualRequired, ""); err != nil {
 			return err
 		}
 		s.dispatchStoreManualNotification(storeOrder)
-		return s.markCompleted(ctx, paymentOrder, "STORE_MANUAL_REQUIRED")
+		return s.markCompleted(ctx, paymentOrder, lease, "STORE_MANUAL_REQUIRED")
 	}
 }
 
