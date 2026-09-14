@@ -1558,6 +1558,16 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 		preferredPool := ""
 		for _, pool := range openAIAccountPoolOrder {
 			poolAccounts := pools[pool]
+			if len(poolAccounts) == 0 {
+				continue
+			}
+			// Remember the first non-empty higher-priority pool even when its
+			// PLUS headroom gate removes every candidate. This keeps fallback
+			// telemetry accurate for PLUS -> PRO transitions caused by a fresh
+			// five-hour snapshot at 100%.
+			if preferredPool == "" {
+				preferredPool = string(pool)
+			}
 			if pool == openAIAccountPoolPlus {
 				now := time.Now()
 				withHeadroom := make([]*Account, 0, len(poolAccounts))
@@ -1570,9 +1580,6 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 			}
 			if len(poolAccounts) == 0 {
 				continue
-			}
-			if preferredPool == "" {
-				preferredPool = string(pool)
 			}
 			poolReq := req
 			poolReq.accountPool = pool

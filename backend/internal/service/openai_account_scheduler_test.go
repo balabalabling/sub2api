@@ -2788,6 +2788,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_ExhaustedPlusFallsBackT
 	require.NotNil(t, selection.Account)
 	require.Equal(t, int64(21652), selection.Account.ID)
 	require.Equal(t, string(openAIAccountPoolPro), decision.SelectedPool)
+	require.Equal(t, string(openAIAccountPoolPlus), decision.FallbackFromPool)
 	if selection.ReleaseFunc != nil {
 		selection.ReleaseFunc()
 	}
