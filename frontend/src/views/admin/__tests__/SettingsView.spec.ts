@@ -206,7 +206,7 @@ vi.mock("vue-i18n", async () => {
     "admin.settings.openaiExperimentalScheduler.stickyWeightedTitle": "粘性加权",
     "admin.settings.openaiExperimentalScheduler.stickyWeightedDescription": "开启后 previous_response_id 和 session_hash 粘性进入高级调度打分；关闭时仍按旧逻辑硬命中粘性账号。",
     "admin.settings.openaiExperimentalScheduler.subscriptionPriorityTitle": "订阅优先",
-    "admin.settings.openaiExperimentalScheduler.subscriptionPriorityDescription": "开启后先在 ChatGPT 订阅账号池中按权值选取；订阅池拿不到席位时再回退到非订阅账号池。",
+    "admin.settings.openaiExperimentalScheduler.subscriptionPriorityDescription": "开启后按 PLUS（优先使用剩余 5 小时额度更多者）→ PRO → API Key → 兼容账号池逐级调度；PRO 不受 5 小时额度限制。",
     "admin.settings.openaiExperimentalScheduler.weightsTitle": "调度权值覆盖",
     "admin.settings.openaiExperimentalScheduler.weightsDescription": "留空时使用配置/环境变量值；配置未设置时使用内置默认值。页面非空设置优先。",
     "admin.settings.openaiExperimentalScheduler.defaultPlaceholder": "配置/默认：{value}",
