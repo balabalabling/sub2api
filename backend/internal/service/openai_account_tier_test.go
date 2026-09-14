@@ -47,11 +47,11 @@ func TestPartitionOpenAIAccountsByPoolPreservesInputOrder(t *testing.T) {
 func TestOpenAIPlusQuotaRank(t *testing.T) {
 	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 	fresh := &Account{Extra: map[string]any{
-		"codex_5h_used_percent": 25.0,
+		"codex_5h_used_percent":  25.0,
 		"codex_usage_updated_at": now.Add(-time.Minute).Format(time.RFC3339),
 	}}
 	stale := &Account{Extra: map[string]any{
-		"codex_5h_used_percent": 10.0,
+		"codex_5h_used_percent":  10.0,
 		"codex_usage_updated_at": now.Add(-9 * time.Hour).Format(time.RFC3339),
 	}}
 
@@ -59,20 +59,25 @@ func TestOpenAIPlusQuotaRank(t *testing.T) {
 	require.InDelta(t, 75.0, openAIPlusQuotaRankFor(fresh, now).RemainingPercent, 0.001)
 	require.Equal(t, openAIPlusQuotaStale, openAIPlusQuotaRankFor(stale, now).State)
 	require.Equal(t, openAIPlusQuotaMissing, openAIPlusQuotaRankFor(&Account{}, now).State)
+	require.True(t, openAIPlusAccountHasHeadroom(stale, now))
+	require.False(t, openAIPlusAccountHasHeadroom(&Account{Extra: map[string]any{
+		"codex_5h_used_percent":  100.0,
+		"codex_usage_updated_at": now.Add(-time.Minute).Format(time.RFC3339),
+	}}, now))
 }
 
 func TestSortOpenAIAccountCandidatesForPool(t *testing.T) {
 	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 	freshLow := &Account{ID: 2, Priority: 5, Extra: map[string]any{
-		"codex_5h_used_percent": 60.0,
+		"codex_5h_used_percent":  60.0,
 		"codex_usage_updated_at": now.Add(-time.Minute).Format(time.RFC3339),
 	}}
 	freshHigh := &Account{ID: 3, Priority: 9, Extra: map[string]any{
-		"codex_5h_used_percent": 20.0,
+		"codex_5h_used_percent":  20.0,
 		"codex_usage_updated_at": now.Add(-time.Minute).Format(time.RFC3339),
 	}}
 	stale := &Account{ID: 1, Priority: 0, Extra: map[string]any{
-		"codex_5h_used_percent": 5.0,
+		"codex_5h_used_percent":  5.0,
 		"codex_usage_updated_at": now.Add(-9 * time.Hour).Format(time.RFC3339),
 	}}
 	candidates := []openAIAccountCandidateScore{
@@ -96,6 +101,24 @@ func TestSortOpenAIAccountCandidatesForPoolProIgnoresFiveHourQuota(t *testing.T)
 
 	sortOpenAIAccountCandidatesForPool(candidates, openAIAccountPoolPro, now)
 	require.Equal(t, []int64{2, 1}, accountIDsForTierCandidates(candidates))
+}
+
+func TestEvaluateAccountSchedulingThresholdProIgnoresFiveHourQuota(t *testing.T) {
+	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
+	pro := &Account{
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"plan_type": "pro",
+		},
+		Extra: map[string]any{
+			"codex_5h_used_percent": 100.0,
+			"codex_5h_reset_at":     now.Add(2 * time.Hour).Format(time.RFC3339),
+		},
+	}
+
+	decision := EvaluateAccountSchedulingThreshold(pro, map[string]int{PlatformOpenAI: 80}, now)
+	require.False(t, decision.ShouldPause)
 }
 
 func accountIDsForTierTest(accounts []*Account) []int64 {

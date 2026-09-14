@@ -184,10 +184,15 @@ func openAIThresholdCandidates(account *Account, now time.Time) []*accountSchedu
 	if !openAICodexSnapshotIdentityTrusted(account) {
 		return nil
 	}
-	return []*accountSchedulingThresholdCandidate{
-		openAIThresholdCandidate(account.Extra, "5h", now),
-		openAIThresholdCandidate(account.Extra, "7d", now),
+	// PRO subscriptions have no five-hour cap. Keep their seven-day signal for
+	// installations that expose one, but never let a cached 5h value pause or
+	// exclude a PRO account.
+	candidates := make([]*accountSchedulingThresholdCandidate, 0, 2)
+	if openAIAccountPoolFor(account) != openAIAccountPoolPro {
+		candidates = append(candidates, openAIThresholdCandidate(account.Extra, "5h", now))
 	}
+	candidates = append(candidates, openAIThresholdCandidate(account.Extra, "7d", now))
+	return candidates
 }
 
 func openAICodexSnapshotIdentityTrusted(account *Account) bool {

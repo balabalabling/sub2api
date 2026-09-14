@@ -522,11 +522,17 @@ func shouldAutoPauseOpenAIAccountByQuota(ctx context.Context, account *Account) 
 	if account == nil || !account.IsOpenAI() {
 		return false, openAIQuotaAutoPauseDecision{}
 	}
+	// PRO subscriptions are not subject to the Codex five-hour cap. Ignore 5h
+	// snapshots and thresholds for them while retaining any configured 7d gate.
+	proNoFiveHourCap := openAIAccountPoolFor(account) == openAIAccountPoolPro
 	// 自动用卡有独立阈值：达到消费阈值时必须先退出调度；仅达到普通暂停阈值时，
 	// 只有新鲜状态明确存在可用卡才继续放行到消费阈值。
 	if config := ResolveOpenAIAutoResetCreditConfig(account); config.Enabled {
 		now := time.Now()
-		utilization5h, has5h := resolveOpenAIQuotaUtilization(account.Extra, "5h", now)
+		utilization5h, has5h := 0.0, false
+		if !proNoFiveHourCap {
+			utilization5h, has5h = resolveOpenAIQuotaUtilization(account.Extra, "5h", now)
+		}
 		utilization7d, has7d := resolveOpenAIQuotaUtilization(account.Extra, "7d", now)
 		if has5h && utilization5h >= config.Threshold5h {
 			notifyOpenAIAutoReset(account.ID)
@@ -540,6 +546,9 @@ func shouldAutoPauseOpenAIAccountByQuota(ctx context.Context, account *Account) 
 		disabled5h := resolveAccountExtraBool(account.Extra, "auto_pause_5h_disabled")
 		disabled7d := resolveAccountExtraBool(account.Extra, "auto_pause_7d_disabled")
 		pause5h, pause7d := resolveOpenAIQuotaAutoPauseThresholds(ctx, account)
+		if proNoFiveHourCap {
+			pause5h = 0
+		}
 		pauseReached5h := !disabled5h && pause5h > 0 && has5h && utilization5h >= pause5h
 		pauseReached7d := !disabled7d && pause7d > 0 && has7d && utilization7d >= pause7d
 		if pauseReached5h || pauseReached7d {
@@ -563,7 +572,7 @@ func shouldAutoPauseOpenAIAccountByQuota(ctx context.Context, account *Account) 
 	disabled7d := resolveAccountExtraBool(account.Extra, "auto_pause_7d_disabled")
 	threshold5h, threshold7d := resolveOpenAIQuotaAutoPauseThresholds(ctx, account)
 	now := time.Now()
-	if !disabled5h && threshold5h > 0 {
+	if !proNoFiveHourCap && !disabled5h && threshold5h > 0 {
 		if utilization, ok := resolveOpenAIQuotaUtilization(account.Extra, "5h", now); ok && utilization >= threshold5h {
 			return true, openAIQuotaAutoPauseDecision{window: "5h", threshold: threshold5h, utilization: utilization}
 		}

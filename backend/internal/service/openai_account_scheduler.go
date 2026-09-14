@@ -440,6 +440,12 @@ func (s *defaultOpenAIAccountScheduler) Select(
 				}
 				selection = nil
 			}
+			if selection != nil && selection.Account != nil && !openAIAccountEligibleForTieredSticky(req, selection.Account) {
+				if selection.ReleaseFunc != nil {
+					selection.ReleaseFunc()
+				}
+				selection = nil
+			}
 		}
 		if selection != nil && selection.Account != nil {
 			decision.Layer = openAIAccountScheduleLayerPreviousResponse
@@ -523,6 +529,16 @@ func annotateOpenAIAccountScheduleDecision(decision *OpenAIAccountScheduleDecisi
 	}
 }
 
+func openAIAccountEligibleForTieredSticky(req OpenAIAccountScheduleRequest, account *Account) bool {
+	if account == nil || !req.SubscriptionPriority || NormalizeOpenAICompatiblePlatform(req.Platform) != PlatformOpenAI {
+		return true
+	}
+	if openAIAccountPoolFor(account) != openAIAccountPoolPlus {
+		return true
+	}
+	return openAIPlusAccountHasHeadroom(account, time.Now())
+}
+
 func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 	ctx context.Context,
 	req OpenAIAccountScheduleRequest,
@@ -566,12 +582,16 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 	if !s.isAccountRequestCompatible(ctx, account, req) {
 		return nil, false, nil
 	}
+	if !openAIAccountEligibleForTieredSticky(req, account) {
+		clearBinding()
+		return nil, false, nil
+	}
 	if !s.isAccountTransportCompatible(account, req.RequiredTransport) {
 		clearBinding()
 		return nil, false, nil
 	}
 	account = s.service.recheckSelectedOpenAIAccountFromDB(ctx, account, req.GroupID, req.Platform, req.RequestedModel, req.RequireCompact, req.RequiredCapability)
-	if account == nil || !s.service.openAIAccountMatchesSchedulingGroup(account, req.GroupID) || !s.isAccountRequestCompatible(ctx, account, req) || !s.isAccountTransportCompatible(account, req.RequiredTransport) {
+	if account == nil || !s.service.openAIAccountMatchesSchedulingGroup(account, req.GroupID) || !s.isAccountRequestCompatible(ctx, account, req) || !s.isAccountTransportCompatible(account, req.RequiredTransport) || !openAIAccountEligibleForTieredSticky(req, account) {
 		clearBinding()
 		return nil, false, nil
 	}
@@ -1323,6 +1343,9 @@ func (s *defaultOpenAIAccountScheduler) tryFallbackToWeightedSticky(
 		if !s.isAccountRequestCompatible(ctx, account, req) || !s.isAccountTransportCompatible(account, req.RequiredTransport) {
 			continue
 		}
+		if !openAIAccountEligibleForTieredSticky(req, account) {
+			continue
+		}
 		account = s.service.recheckSelectedOpenAIAccountFromDB(ctx, account, req.GroupID, req.Platform, req.RequestedModel, req.RequireCompact, req.RequiredCapability)
 		if account == nil {
 			if accountID == req.StickyAccountID && strings.TrimSpace(req.SessionHash) != "" {
@@ -1535,6 +1558,16 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 		preferredPool := ""
 		for _, pool := range openAIAccountPoolOrder {
 			poolAccounts := pools[pool]
+			if pool == openAIAccountPoolPlus {
+				now := time.Now()
+				withHeadroom := make([]*Account, 0, len(poolAccounts))
+				for _, account := range poolAccounts {
+					if openAIPlusAccountHasHeadroom(account, now) {
+						withHeadroom = append(withHeadroom, account)
+					}
+				}
+				poolAccounts = withHeadroom
+			}
 			if len(poolAccounts) == 0 {
 				continue
 			}
@@ -1549,8 +1582,8 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 				return nil, attempt.candidateCount, attempt.topK, attempt.loadSkew, attempt.err
 			}
 			if attempt.result != nil {
-				attempt.result.SchedulingPool = string(pool)
-				if string(pool) != preferredPool {
+				markOpenAIAccountPoolSelection(attempt.result, pool)
+				if attempt.result.SchedulingPool == string(pool) && string(pool) != preferredPool {
 					attempt.result.SchedulingFallbackFromPool = preferredPool
 				}
 				return attempt.result, attempt.candidateCount, attempt.topK, attempt.loadSkew, nil
@@ -1562,8 +1595,8 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 			result, candidateCount, topK, loadSkew, fallbackErr := s.finishLoadBalanceSelectionFallback(ctx, poolReq, attempt, budget, filterStats)
 			lastCandidateCount, lastTopK, lastLoadSkew = candidateCount, topK, loadSkew
 			if result != nil {
-				result.SchedulingPool = string(pool)
-				if string(pool) != preferredPool {
+				markOpenAIAccountPoolSelection(result, pool)
+				if result.SchedulingPool == string(pool) && string(pool) != preferredPool {
 					result.SchedulingFallbackFromPool = preferredPool
 				}
 				return result, candidateCount, topK, loadSkew, nil
@@ -1587,6 +1620,20 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 		return attempt.result, attempt.candidateCount, attempt.topK, attempt.loadSkew, nil
 	}
 	return s.finishLoadBalanceSelectionFallback(ctx, req, attempt, budget, filterStats)
+}
+
+func markOpenAIAccountPoolSelection(result *AccountSelectionResult, attemptedPool openAIAccountPool) {
+	if result == nil || result.Account == nil {
+		return
+	}
+	if result.SchedulingPool == "" {
+		// A weighted-sticky fallback may return an account from an earlier or
+		// later pool; report the account's actual pool instead of the attempt.
+		result.SchedulingPool = string(openAIAccountPoolFor(result.Account))
+		if result.SchedulingPool == "" {
+			result.SchedulingPool = string(attemptedPool)
+		}
+	}
 }
 
 func (s *defaultOpenAIAccountScheduler) trySelectByLoadBalancePool(
@@ -1951,7 +1998,7 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 		oauthSchedulingRateMultiplier := defaultOpenAIOAuthSchedulingRateMultiplier
 		enabled := false
 		stickyWeightedEnabled := false
-		subscriptionPriorityEnabled := false
+		subscriptionPriorityEnabled := true
 		lbTopKOverride := 0
 		weightOverrides := map[string]float64{}
 		if repo := s.openAIAdvancedSchedulerSettingRepo(); repo != nil {
@@ -1963,7 +2010,7 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 				oauthSchedulingRateMultiplier = parseOpenAIOAuthSchedulingRateMultiplier(values[SettingKeyOpenAIOAuthSchedulingRateMultiplier])
 				enabled = strings.EqualFold(strings.TrimSpace(values[openAIAdvancedSchedulerSettingKey]), "true")
 				stickyWeightedEnabled = strings.EqualFold(strings.TrimSpace(values[SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled]), "true")
-				subscriptionPriorityEnabled = strings.EqualFold(strings.TrimSpace(values[SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled]), "true")
+				subscriptionPriorityEnabled = parseOpenAISubscriptionPriorityEnabled(values)
 				lbTopKOverride = parsePositiveIntOverride(values[SettingKeyOpenAIAdvancedSchedulerLBTopK])
 				weightOverrides = parseOpenAIAdvancedSchedulerWeightOverrides(values)
 			} else {
@@ -1980,7 +2027,7 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 				oauthSchedulingRateMultiplier = parseOpenAIOAuthSchedulingRateMultiplier(fallbackValues[SettingKeyOpenAIOAuthSchedulingRateMultiplier])
 				enabled = strings.EqualFold(strings.TrimSpace(fallbackValues[openAIAdvancedSchedulerSettingKey]), "true")
 				stickyWeightedEnabled = strings.EqualFold(strings.TrimSpace(fallbackValues[SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled]), "true")
-				subscriptionPriorityEnabled = strings.EqualFold(strings.TrimSpace(fallbackValues[SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled]), "true")
+				subscriptionPriorityEnabled = parseOpenAISubscriptionPriorityEnabled(fallbackValues)
 				lbTopKOverride = parsePositiveIntOverride(fallbackValues[SettingKeyOpenAIAdvancedSchedulerLBTopK])
 				weightOverrides = parseOpenAIAdvancedSchedulerWeightOverrides(fallbackValues)
 			}
@@ -2009,6 +2056,16 @@ func (s *OpenAIGatewayService) openAIAdvancedSchedulerRuntimeSettings(ctx contex
 
 	settings, _ := result.(openAIAdvancedSchedulerRuntimeSettings)
 	return settings
+}
+
+func parseOpenAISubscriptionPriorityEnabled(values map[string]string) bool {
+	raw, ok := values[SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled]
+	if !ok || strings.TrimSpace(raw) == "" {
+		// The key was introduced after the advanced scheduler. Treat it as on
+		// for upgraded installations while preserving an explicit admin false.
+		return true
+	}
+	return strings.EqualFold(strings.TrimSpace(raw), "true")
 }
 
 func (s *OpenAIGatewayService) isOpenAIAdvancedSchedulerEnabled(ctx context.Context) bool {

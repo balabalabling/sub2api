@@ -80,6 +80,15 @@ func openAIPlusQuotaRankFor(account *Account, now time.Time) openAIPlusQuotaRank
 	}
 }
 
+// openAIPlusAccountHasHeadroom keeps a fresh, exhausted PLUS account out of
+// the PLUS pool so selection can continue to PRO/API Key. A stale or missing
+// snapshot remains eligible: the caller may still use it while the next
+// upstream response refreshes quota metadata.
+func openAIPlusAccountHasHeadroom(account *Account, now time.Time) bool {
+	rank := openAIPlusQuotaRankFor(account, now)
+	return rank.State != openAIPlusQuotaFresh || rank.RemainingPercent > 0
+}
+
 func openAIAccountCandidateBaseBetter(left, right openAIAccountCandidateScore) bool {
 	if left.priority != right.priority {
 		return left.priority < right.priority

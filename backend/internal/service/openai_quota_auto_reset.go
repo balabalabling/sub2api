@@ -513,13 +513,17 @@ func (s *OpenAIQuotaAutoResetService) assessUsage(usage *OpenAIQuotaUsage, accou
 }
 
 func (s *OpenAIQuotaAutoResetService) buildAssessment(account *Account, config OpenAIAutoResetCreditConfig, utilization5h, utilization7d float64) openAIAutoResetAssessment {
+	// PRO subscriptions have no Codex five-hour cap. Keep the value in the
+	// assessment struct for diagnostics, but exclude it from every trigger and
+	// pause decision below.
+	proNoFiveHourCap := openAIAccountPoolFor(account) == openAIAccountPoolPro
 	assessment := openAIAutoResetAssessment{
 		utilization5h: utilization5h,
 		utilization7d: utilization7d,
 		threshold5h:   config.Threshold5h,
 		threshold7d:   config.Threshold7d,
 	}
-	reset5h := utilization5h >= config.Threshold5h
+	reset5h := !proNoFiveHourCap && utilization5h >= config.Threshold5h
 	reset7d := utilization7d >= config.Threshold7d
 	assessment.resetReached = reset5h || reset7d
 	assessment.triggerWindow = joinOpenAIAutoResetWindows(reset5h, reset7d)
@@ -531,7 +535,7 @@ func (s *OpenAIQuotaAutoResetService) buildAssessment(account *Account, config O
 			account,
 		)
 	}
-	pauseReached5h := !resolveAccountExtraBool(account.Extra, "auto_pause_5h_disabled") && pause5h > 0 && utilization5h >= pause5h
+	pauseReached5h := !proNoFiveHourCap && !resolveAccountExtraBool(account.Extra, "auto_pause_5h_disabled") && pause5h > 0 && utilization5h >= pause5h
 	pauseReached7d := !resolveAccountExtraBool(account.Extra, "auto_pause_7d_disabled") && pause7d > 0 && utilization7d >= pause7d
 	assessment.pauseReached = pauseReached5h || pauseReached7d || assessment.resetReached
 	if assessment.triggerWindow == "" {

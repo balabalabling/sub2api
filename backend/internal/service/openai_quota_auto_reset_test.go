@@ -58,6 +58,17 @@ func TestShouldAutoPauseOpenAIAccountByQuota_AutoResetCreditStates(t *testing.T)
 		"codex_5h_reset_at":                      now.Add(time.Hour).Format(time.RFC3339),
 	}
 
+	t.Run("PRO ignores five-hour auto-reset and pause gates", func(t *testing.T) {
+		account := &Account{
+			ID: 5, Platform: PlatformOpenAI, Type: AccountTypeOAuth,
+			Credentials: map[string]any{"plan_type": "pro"},
+			Extra:       cloneOpenAIAutoResetExtra(baseExtra),
+		}
+		paused, decision := shouldAutoPauseOpenAIAccountByQuota(context.Background(), account)
+		require.False(t, paused)
+		require.Empty(t, decision.window)
+	})
+
 	t.Run("卡状态未知时暂停并触发异步查询", func(t *testing.T) {
 		account := &Account{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Extra: cloneOpenAIAutoResetExtra(baseExtra)}
 		paused, decision := shouldAutoPauseOpenAIAccountByQuota(context.Background(), account)
