@@ -1242,7 +1242,7 @@ func TestAPIContracts(t *testing.T) {
 					"openai_ttft_mode": "semantic",
 					"openai_advanced_scheduler_enabled": false,
 					"openai_advanced_scheduler_sticky_weighted_enabled": false,
-					"openai_advanced_scheduler_subscription_priority_enabled": true,
+					"openai_advanced_scheduler_subscription_priority_enabled": false,
 					"openai_advanced_scheduler_lb_top_k": "",
 					"openai_advanced_scheduler_weight_priority": "",
 					"openai_advanced_scheduler_weight_load": "",
