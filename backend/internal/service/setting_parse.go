@@ -249,7 +249,9 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingPaymentVisibleMethodWxpayEnabled:                      "false",
 		openAIAdvancedSchedulerSettingKey:                            "false",
 		SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled:       "false",
-		SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled: "false",
+		// Tiered PLUS/PRO/API-key selection is the default once the advanced
+		// scheduler itself is enabled. Explicit admin values still override it.
+		SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled: "true",
 		SettingKeyOpenAIAdvancedSchedulerLBTopK:                      "",
 		SettingKeyOpenAIAdvancedSchedulerWeightPriority:              "",
 		SettingKeyOpenAIAdvancedSchedulerWeightLoad:                  "",
