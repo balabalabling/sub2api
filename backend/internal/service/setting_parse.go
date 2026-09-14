@@ -232,23 +232,23 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyCodexCLIOnlyEngineFingerprintSignals: openai.DefaultEngineFingerprintSignalsJSON(),
 
 		// 分组隔离（默认不允许未分组 Key 调度）
-		SettingKeyAllowUngroupedKeyScheduling:                        "false",
-		SettingKeyOpenAILowUpstreamRatePriorityEnabled:               "false",
-		SettingKeyOpenAIOAuthSchedulingRateMultiplier:                "1",
-		SettingKeyEnableAnthropicCacheTTL1hInjection:                 "false",
-		SettingKeyRewriteMessageCacheControl:                         strconv.FormatBool(s.defaultRewriteMessageCacheControl()),
-		SettingKeyEnableClientDatelineNormalization:                  "true",
-		SettingKeyAntigravityUserAgentVersion:                        "",
-		SettingKeyOpenAICodexUserAgent:                               "",
-		SettingKeyOpenAICodexClientVersion:                           "",
-		SettingKeyOpenAICodexClientVersionSynced:                     "",
-		SettingKeyOpenAICodexVersionAutoSyncEnabled:                  "true",
-		SettingPaymentVisibleMethodAlipaySource:                      "",
-		SettingPaymentVisibleMethodWxpaySource:                       "",
-		SettingPaymentVisibleMethodAlipayEnabled:                     "false",
-		SettingPaymentVisibleMethodWxpayEnabled:                      "false",
-		openAIAdvancedSchedulerSettingKey:                            "false",
-		SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled:       "false",
+		SettingKeyAllowUngroupedKeyScheduling:                  "false",
+		SettingKeyOpenAILowUpstreamRatePriorityEnabled:         "false",
+		SettingKeyOpenAIOAuthSchedulingRateMultiplier:          "1",
+		SettingKeyEnableAnthropicCacheTTL1hInjection:           "false",
+		SettingKeyRewriteMessageCacheControl:                   strconv.FormatBool(s.defaultRewriteMessageCacheControl()),
+		SettingKeyEnableClientDatelineNormalization:            "true",
+		SettingKeyAntigravityUserAgentVersion:                  "",
+		SettingKeyOpenAICodexUserAgent:                         "",
+		SettingKeyOpenAICodexClientVersion:                     "",
+		SettingKeyOpenAICodexClientVersionSynced:               "",
+		SettingKeyOpenAICodexVersionAutoSyncEnabled:            "true",
+		SettingPaymentVisibleMethodAlipaySource:                "",
+		SettingPaymentVisibleMethodWxpaySource:                 "",
+		SettingPaymentVisibleMethodAlipayEnabled:               "false",
+		SettingPaymentVisibleMethodWxpayEnabled:                "false",
+		openAIAdvancedSchedulerSettingKey:                      "false",
+		SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled: "false",
 		// Tiered PLUS/PRO/API-key selection is the default once the advanced
 		// scheduler itself is enabled. Explicit admin values still override it.
 		SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled: "true",
@@ -914,7 +914,11 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	result.OpenAIOAuthSchedulingRateMultiplier = parseOpenAIOAuthSchedulingRateMultiplier(settings[SettingKeyOpenAIOAuthSchedulingRateMultiplier])
 	result.OpenAIAdvancedSchedulerEnabled = settings[openAIAdvancedSchedulerSettingKey] == "true"
 	result.OpenAIAdvancedSchedulerStickyWeightedEnabled = settings[SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled] == "true"
-	result.OpenAIAdvancedSchedulerSubscriptionPriorityEnabled = settings[SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled] == "true"
+	// The tiered PLUS/PRO/API-key scheduler predates this setting on upgraded
+	// installations. Keep the admin view aligned with runtime behavior: a
+	// missing or blank value means the priority is enabled, while an explicit
+	// false remains respected.
+	result.OpenAIAdvancedSchedulerSubscriptionPriorityEnabled = parseOpenAISubscriptionPriorityEnabled(settings)
 	result.OpenAIAdvancedSchedulerLBTopK = strings.TrimSpace(settings[SettingKeyOpenAIAdvancedSchedulerLBTopK])
 	result.OpenAIAdvancedSchedulerWeightPriority = strings.TrimSpace(settings[SettingKeyOpenAIAdvancedSchedulerWeightPriority])
 	result.OpenAIAdvancedSchedulerWeightLoad = strings.TrimSpace(settings[SettingKeyOpenAIAdvancedSchedulerWeightLoad])

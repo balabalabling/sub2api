@@ -519,6 +519,18 @@ func TestSettingService_ParseSettingsDefaultsOpenAIOAuthSchedulingRateMultiplier
 	require.Equal(t, 0.05, svc.parseSettings(map[string]string{SettingKeyOpenAIOAuthSchedulingRateMultiplier: "0.05"}).OpenAIOAuthSchedulingRateMultiplier)
 }
 
+func TestSettingService_ParseSettingsDefaultsTieredSubscriptionPriority(t *testing.T) {
+	svc := NewSettingService(&settingUpdateRepoStub{}, &config.Config{})
+
+	require.True(t, svc.parseSettings(map[string]string{}).OpenAIAdvancedSchedulerSubscriptionPriorityEnabled)
+	require.True(t, svc.parseSettings(map[string]string{
+		SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled: " ",
+	}).OpenAIAdvancedSchedulerSubscriptionPriorityEnabled)
+	require.False(t, svc.parseSettings(map[string]string{
+		SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled: "false",
+	}).OpenAIAdvancedSchedulerSubscriptionPriorityEnabled)
+}
+
 func TestSettingService_GetAllSettings_OpenAIAdvancedSchedulerEffectiveValuesUseConfig(t *testing.T) {
 	cfg := &config.Config{}
 	cfg.Gateway.OpenAIWS.LBTopK = 13
