@@ -14,7 +14,12 @@ func TestOpenAIAccountPoolFor(t *testing.T) {
 		want    openAIAccountPool
 	}{
 		{name: "plus", account: &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"plan_type": " PLUS "}}, want: openAIAccountPoolPlus},
+		{name: "team", account: &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"plan_type": "Team"}}, want: openAIAccountPoolPlus},
 		{name: "pro", account: &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"plan_type": "Pro"}}, want: openAIAccountPoolPro},
+		{name: "chatgptpro", account: &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"plan_type": "chatgptpro"}}, want: openAIAccountPoolPro},
+		{name: "chatgpt pro alias", account: &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"plan_type": "chatgpt_pro"}}, want: openAIAccountPoolPro},
+		{name: "prolite", account: &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"plan_type": "prolite"}}, want: openAIAccountPoolPro},
+		{name: "team pro", account: &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"plan_type": "self_serve_business_prolite"}}, want: openAIAccountPoolPro},
 		{name: "api key", account: &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}, want: openAIAccountPoolAPIKey},
 		{name: "business", account: &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"plan_type": "business"}}, want: openAIAccountPoolCompat},
 		{name: "free", account: &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"plan_type": "free"}}, want: openAIAccountPoolCompat},
@@ -35,13 +40,33 @@ func TestPartitionOpenAIAccountsByPoolPreservesInputOrder(t *testing.T) {
 		{ID: 2, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"plan_type": "pro"}},
 		{ID: 3, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"plan_type": "plus"}},
 		{ID: 4, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"plan_type": "team"}},
+		{ID: 5, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"plan_type": "self_serve_business_prolite"}},
+		{ID: 6, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"plan_type": "business"}},
 	}
 
 	pools := partitionOpenAIAccountsByPool(accounts)
-	require.Equal(t, []int64{3}, accountIDsForTierTest(pools[openAIAccountPoolPlus]))
-	require.Equal(t, []int64{2}, accountIDsForTierTest(pools[openAIAccountPoolPro]))
+	require.Equal(t, []int64{3, 4}, accountIDsForTierTest(pools[openAIAccountPoolPlus]))
+	require.Equal(t, []int64{2, 5}, accountIDsForTierTest(pools[openAIAccountPoolPro]))
 	require.Equal(t, []int64{1}, accountIDsForTierTest(pools[openAIAccountPoolAPIKey]))
-	require.Equal(t, []int64{4}, accountIDsForTierTest(pools[openAIAccountPoolCompat]))
+	require.Equal(t, []int64{6}, accountIDsForTierTest(pools[openAIAccountPoolCompat]))
+}
+
+func TestEvaluateAccountSchedulingThresholdTeamProIgnoresFiveHourQuota(t *testing.T) {
+	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
+	teamPro := &Account{
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
+		Credentials: map[string]any{
+			"plan_type": "self_serve_business_prolite",
+		},
+		Extra: map[string]any{
+			"codex_5h_used_percent": 100.0,
+			"codex_5h_reset_at":     now.Add(2 * time.Hour).Format(time.RFC3339),
+		},
+	}
+
+	decision := EvaluateAccountSchedulingThreshold(teamPro, map[string]int{PlatformOpenAI: 80}, now)
+	require.False(t, decision.ShouldPause)
 }
 
 func TestOpenAIPlusQuotaRank(t *testing.T) {

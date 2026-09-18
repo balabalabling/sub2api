@@ -45,14 +45,20 @@ func openAIAccountPoolFor(account *Account) openAIAccountPool {
 	if !account.IsOpenAIOAuth() {
 		return openAIAccountPoolCompat
 	}
-	switch strings.ToLower(strings.TrimSpace(account.GetCredential("plan_type"))) {
-	case "plus":
+	switch normalizeOpenAIPlanType(account.GetCredential("plan_type")) {
+	case "plus", "team":
 		return openAIAccountPoolPlus
-	case "pro":
+	case "pro", "chatgptpro", "prolite", "selfservebusinessprolite":
 		return openAIAccountPoolPro
 	default:
 		return openAIAccountPoolCompat
 	}
+}
+
+// normalizeOpenAIPlanType follows the frontend's official ChatGPT plan aliases
+// while keeping the upstream credential value unchanged.
+func normalizeOpenAIPlanType(value string) string {
+	return strings.NewReplacer("_", "", "-", "", " ", "").Replace(strings.ToLower(strings.TrimSpace(value)))
 }
 
 func partitionOpenAIAccountsByPool(accounts []*Account) map[openAIAccountPool][]*Account {
@@ -71,7 +77,8 @@ func openAIPlusQuotaRankFor(account *Account, now time.Time) openAIPlusQuotaRank
 	if !ok {
 		return openAIPlusQuotaRank{State: openAIPlusQuotaMissing}
 	}
-	if openAIQuotaWindowResetAny(account.Extra, now, "secondary", "5h") || openAIQuotaHeadroomSnapshotStale(account.Extra, now) {
+	window5h, _ := openAICanonicalQuotaWindows(account.Extra, now)
+	if window5h.reset || openAIQuotaHeadroomSnapshotStale(account.Extra, now) {
 		return openAIPlusQuotaRank{State: openAIPlusQuotaStale}
 	}
 	return openAIPlusQuotaRank{
