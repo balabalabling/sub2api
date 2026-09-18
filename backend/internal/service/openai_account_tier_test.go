@@ -91,6 +91,55 @@ func TestOpenAIPlusQuotaRank(t *testing.T) {
 	}}, now))
 }
 
+func TestOpenAIPlusLongQuotaExhausted(t *testing.T) {
+	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
+	tests := []struct {
+		name string
+		extra map[string]any
+		want bool
+	}{
+		{
+			name: "weekly one percent remaining",
+			extra: map[string]any{
+				"codex_7d_used_percent": 99.0,
+				"codex_7d_reset_at": now.Add(24 * time.Hour).Format(time.RFC3339),
+			},
+			want: true,
+		},
+		{
+			name: "monthly one percent remaining",
+			extra: map[string]any{
+				"codex_monthly_used_percent": 99.5,
+				"codex_30d_reset_at": now.Add(10 * 24 * time.Hour).Format(time.RFC3339),
+			},
+			want: true,
+		},
+		{
+			name: "weekly reset does not block",
+			extra: map[string]any{
+				"codex_7d_used_percent": 100.0,
+				"codex_7d_reset_at": now.Add(-time.Minute).Format(time.RFC3339),
+			},
+			want: false,
+		},
+		{
+			name: "two percent remaining stays eligible",
+			extra: map[string]any{
+				"codex_7d_used_percent": 98.0,
+				"codex_7d_reset_at": now.Add(24 * time.Hour).Format(time.RFC3339),
+			},
+			want: false,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			account := &Account{Extra: tt.extra}
+			require.Equal(t, tt.want, openAIPlusLongQuotaExhausted(account, now))
+			require.Equal(t, !tt.want, openAIPlusAccountHasHeadroom(account, now))
+		})
+	}
+}
+
 func TestSortOpenAIAccountCandidatesForPool(t *testing.T) {
 	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 	freshLow := &Account{ID: 2, Priority: 5, Extra: map[string]any{

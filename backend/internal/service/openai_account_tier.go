@@ -35,6 +35,8 @@ type openAIPlusQuotaRank struct {
 	RemainingPercent float64
 }
 
+const openAIPlusLongQuotaMinRemainingPercent = 1.0
+
 func openAIAccountPoolFor(account *Account) openAIAccountPool {
 	if account == nil || !account.IsOpenAI() {
 		return openAIAccountPoolCompat
@@ -92,8 +94,40 @@ func openAIPlusQuotaRankFor(account *Account, now time.Time) openAIPlusQuotaRank
 // snapshot remains eligible: the caller may still use it while the next
 // upstream response refreshes quota metadata.
 func openAIPlusAccountHasHeadroom(account *Account, now time.Time) bool {
+	if openAIPlusLongQuotaExhausted(account, now) {
+		return false
+	}
 	rank := openAIPlusQuotaRankFor(account, now)
 	return rank.State != openAIPlusQuotaFresh || rank.RemainingPercent > 0
+}
+
+// openAIPlusLongQuotaExhausted keeps a PLUS account out of the tier when an
+// observed weekly or monthly window has at most 1% remaining. The upstream
+// currently persists the weekly window as codex_7d_*; the monthly aliases are
+// accepted as forward-compatible input for providers that expose a 30-day
+// window. Missing or already-reset windows do not block selection.
+func openAIPlusLongQuotaExhausted(account *Account, now time.Time) bool {
+	if account == nil || len(account.Extra) == 0 {
+		return false
+	}
+	windows := []struct {
+		name  string
+		keys  []string
+	}{
+		{name: "7d", keys: []string{"codex_7d_used_percent", "codex_weekly_used_percent"}},
+		{name: "30d", keys: []string{"codex_30d_used_percent", "codex_monthly_used_percent"}},
+	}
+	for _, window := range windows {
+		used, ok := resolveAccountExtraNumber(account.Extra, window.keys...)
+		if !ok || openAIQuotaWindowReset(account.Extra, window.name, now) {
+			continue
+		}
+		remaining := 100 * (1 - clamp01(used/100))
+		if remaining <= openAIPlusLongQuotaMinRemainingPercent {
+			return true
+		}
+	}
+	return false
 }
 
 func openAIAccountCandidateBaseBetter(left, right openAIAccountCandidateScore) bool {
