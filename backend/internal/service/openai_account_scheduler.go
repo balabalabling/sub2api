@@ -1565,6 +1565,13 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 		var lastCandidateCount, lastTopK int
 		var lastLoadSkew float64
 		var lastErr error
+		// Keep the first pool's waitable selection as a deferred fallback. A
+		// busy higher-priority subscription pool must not block a usable lower
+		// pool (for example, an API key), while a wait plan is still useful when
+		// every lower pool is empty or incompatible with the request.
+		var deferredFallbackReq OpenAIAccountScheduleRequest
+		var deferredFallbackAttempt openAIAccountLoadSelectionAttempt
+		deferredFallbackSet := false
 		preferredPool := ""
 		for _, pool := range openAIAccountPoolOrder {
 			poolAccounts := pools[pool]
@@ -1609,11 +1616,19 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 				lastErr = attempt.err
 				continue
 			}
-			result, candidateCount, topK, loadSkew, fallbackErr := s.finishLoadBalanceSelectionFallback(ctx, poolReq, attempt, budget, filterStats)
+			if !deferredFallbackSet && len(attempt.selectionOrder) > 0 {
+				deferredFallbackReq = poolReq
+				deferredFallbackAttempt = attempt
+				deferredFallbackSet = true
+			}
+			lastErr = nil
+		}
+		if deferredFallbackSet {
+			result, candidateCount, topK, loadSkew, fallbackErr := s.finishLoadBalanceSelectionFallback(ctx, deferredFallbackReq, deferredFallbackAttempt, budget, filterStats)
 			lastCandidateCount, lastTopK, lastLoadSkew = candidateCount, topK, loadSkew
 			if result != nil {
-				markOpenAIAccountPoolSelection(result, pool)
-				if result.SchedulingPool == string(pool) && string(pool) != preferredPool {
+				markOpenAIAccountPoolSelection(result, openAIAccountPool(deferredFallbackReq.accountPool))
+				if result.SchedulingPool == string(deferredFallbackReq.accountPool) && string(deferredFallbackReq.accountPool) != preferredPool {
 					result.SchedulingFallbackFromPool = preferredPool
 				}
 				return result, candidateCount, topK, loadSkew, nil
