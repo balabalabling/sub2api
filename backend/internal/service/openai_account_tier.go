@@ -111,8 +111,8 @@ func openAIPlusLongQuotaExhausted(account *Account, now time.Time) bool {
 		return false
 	}
 	windows := []struct {
-		name  string
-		keys  []string
+		name string
+		keys []string
 	}{
 		{name: "7d", keys: []string{"codex_7d_used_percent", "codex_weekly_used_percent"}},
 		{name: "30d", keys: []string{"codex_30d_used_percent", "codex_monthly_used_percent"}},

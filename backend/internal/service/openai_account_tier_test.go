@@ -94,15 +94,15 @@ func TestOpenAIPlusQuotaRank(t *testing.T) {
 func TestOpenAIPlusLongQuotaExhausted(t *testing.T) {
 	now := time.Date(2026, 9, 14, 12, 0, 0, 0, time.UTC)
 	tests := []struct {
-		name string
+		name  string
 		extra map[string]any
-		want bool
+		want  bool
 	}{
 		{
 			name: "weekly one percent remaining",
 			extra: map[string]any{
 				"codex_7d_used_percent": 99.0,
-				"codex_7d_reset_at": now.Add(24 * time.Hour).Format(time.RFC3339),
+				"codex_7d_reset_at":     now.Add(24 * time.Hour).Format(time.RFC3339),
 			},
 			want: true,
 		},
@@ -110,7 +110,7 @@ func TestOpenAIPlusLongQuotaExhausted(t *testing.T) {
 			name: "monthly one percent remaining",
 			extra: map[string]any{
 				"codex_monthly_used_percent": 99.5,
-				"codex_30d_reset_at": now.Add(10 * 24 * time.Hour).Format(time.RFC3339),
+				"codex_30d_reset_at":         now.Add(10 * 24 * time.Hour).Format(time.RFC3339),
 			},
 			want: true,
 		},
@@ -118,7 +118,7 @@ func TestOpenAIPlusLongQuotaExhausted(t *testing.T) {
 			name: "weekly reset does not block",
 			extra: map[string]any{
 				"codex_7d_used_percent": 100.0,
-				"codex_7d_reset_at": now.Add(-time.Minute).Format(time.RFC3339),
+				"codex_7d_reset_at":     now.Add(-time.Minute).Format(time.RFC3339),
 			},
 			want: false,
 		},
@@ -126,7 +126,7 @@ func TestOpenAIPlusLongQuotaExhausted(t *testing.T) {
 			name: "two percent remaining stays eligible",
 			extra: map[string]any{
 				"codex_7d_used_percent": 98.0,
-				"codex_7d_reset_at": now.Add(24 * time.Hour).Format(time.RFC3339),
+				"codex_7d_reset_at":     now.Add(24 * time.Hour).Format(time.RFC3339),
 			},
 			want: false,
 		},
