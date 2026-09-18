@@ -122,8 +122,8 @@ func openAIPlusLongQuotaExhausted(account *Account, now time.Time) bool {
 		if !ok || openAIQuotaWindowReset(account.Extra, window.name, now) {
 			continue
 		}
-		remaining := 100 * (1 - clamp01(used/100))
-		if remaining <= openAIPlusLongQuotaMinRemainingPercent {
+		usedPercent := 100 * clamp01(used/100)
+		if usedPercent >= 100-openAIPlusLongQuotaMinRemainingPercent {
 			return true
 		}
 	}
