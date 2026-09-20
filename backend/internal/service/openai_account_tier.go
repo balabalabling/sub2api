@@ -40,8 +40,8 @@ const (
 	// learned from upstream responses, so admission needs one extra percentage
 	// point of headroom to keep a request admitted at 98% from consuming through
 	// the protected reserve before the next snapshot is persisted.
-	openAIPlusLongQuotaProtectedReservePercent = 1.0
-	openAIPlusLongQuotaSnapshotLagBufferPercent = 1.0
+	openAIPlusLongQuotaProtectedReservePercent     = 1.0
+	openAIPlusLongQuotaSnapshotLagBufferPercent    = 1.0
 	openAIPlusLongQuotaMinAdmissionHeadroomPercent = openAIPlusLongQuotaProtectedReservePercent + openAIPlusLongQuotaSnapshotLagBufferPercent
 )
 
