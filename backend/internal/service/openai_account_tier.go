@@ -35,7 +35,15 @@ type openAIPlusQuotaRank struct {
 	RemainingPercent float64
 }
 
-const openAIPlusLongQuotaMinRemainingPercent = 1.0
+const (
+	// Preserve the final 1% of a PLUS long-window quota. Quota snapshots are
+	// learned from upstream responses, so admission needs one extra percentage
+	// point of headroom to keep a request admitted at 98% from consuming through
+	// the protected reserve before the next snapshot is persisted.
+	openAIPlusLongQuotaProtectedReservePercent = 1.0
+	openAIPlusLongQuotaSnapshotLagBufferPercent = 1.0
+	openAIPlusLongQuotaMinAdmissionHeadroomPercent = openAIPlusLongQuotaProtectedReservePercent + openAIPlusLongQuotaSnapshotLagBufferPercent
+)
 
 func openAIAccountPoolFor(account *Account) openAIAccountPool {
 	if account == nil || !account.IsOpenAI() {
@@ -102,10 +110,12 @@ func openAIPlusAccountHasHeadroom(account *Account, now time.Time) bool {
 }
 
 // openAIPlusLongQuotaExhausted keeps a PLUS account out of the tier when an
-// observed weekly or monthly window has at most 1% remaining. The upstream
-// currently persists the weekly window as codex_7d_*; the monthly aliases are
-// accepted as forward-compatible input for providers that expose a 30-day
-// window. Missing or already-reset windows do not block selection.
+// observed weekly or monthly window reaches the admission reserve. The final
+// 1% is protected and another percentage point absorbs the response-delayed
+// quota snapshot, so an account stops accepting new work at 98% used. The
+// upstream currently persists the weekly window as codex_7d_*; the monthly
+// aliases are accepted as forward-compatible input for providers that expose
+// a 30-day window. Missing or already-reset windows do not block selection.
 func openAIPlusLongQuotaExhausted(account *Account, now time.Time) bool {
 	if account == nil || len(account.Extra) == 0 {
 		return false
@@ -123,7 +133,7 @@ func openAIPlusLongQuotaExhausted(account *Account, now time.Time) bool {
 			continue
 		}
 		usedPercent := 100 * clamp01(used/100)
-		if usedPercent >= 100-openAIPlusLongQuotaMinRemainingPercent {
+		if usedPercent >= 100-openAIPlusLongQuotaMinAdmissionHeadroomPercent {
 			return true
 		}
 	}

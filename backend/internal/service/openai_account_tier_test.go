@@ -123,9 +123,17 @@ func TestOpenAIPlusLongQuotaExhausted(t *testing.T) {
 			want: false,
 		},
 		{
-			name: "two percent remaining stays eligible",
+			name: "two percent remaining is held as admission buffer",
 			extra: map[string]any{
 				"codex_7d_used_percent": 98.0,
+				"codex_7d_reset_at":     now.Add(24 * time.Hour).Format(time.RFC3339),
+			},
+			want: true,
+		},
+		{
+			name: "more than two percent remaining stays eligible",
+			extra: map[string]any{
+				"codex_7d_used_percent": 97.99,
 				"codex_7d_reset_at":     now.Add(24 * time.Hour).Format(time.RFC3339),
 			},
 			want: false,

@@ -2834,7 +2834,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_StickyProStaysBound(t *
 	}
 }
 
-func TestOpenAIGatewayService_SelectAccountWithScheduler_StickyExhaustedPlusReselectsPro(t *testing.T) {
+func TestOpenAIGatewayService_SelectAccountWithScheduler_StickyPlusAtLongWindowAdmissionReserveReselectsPro(t *testing.T) {
 	ctx := context.Background()
 	groupID := int64(10127)
 	now := time.Now().UTC()
@@ -2844,7 +2844,9 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_StickyExhaustedPlusRese
 			Schedulable: true, Concurrency: 1, Priority: 0, GroupIDs: []int64{groupID},
 			Credentials: map[string]any{"plan_type": "plus"},
 			Extra: map[string]any{
-				"codex_5h_used_percent":  100.0,
+				"codex_5h_used_percent":  20.0,
+				"codex_7d_used_percent":  98.0,
+				"codex_7d_reset_at":      now.Add(24 * time.Hour).Format(time.RFC3339),
 				"codex_usage_updated_at": now.Format(time.RFC3339),
 			},
 		},
