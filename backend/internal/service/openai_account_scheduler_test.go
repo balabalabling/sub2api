@@ -2740,7 +2740,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_PlusPrefersFreshHeadroo
 	}
 }
 
-func TestOpenAIGatewayService_SelectAccountWithScheduler_ExhaustedPlusFallsBackToPro(t *testing.T) {
+func TestOpenAIGatewayService_SelectAccountWithScheduler_ExhaustedPlusRemainsSchedulable(t *testing.T) {
 	ctx := context.Background()
 	groupID := int64(10125)
 	now := time.Now().UTC()
@@ -2769,8 +2769,9 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_ExhaustedPlusFallsBackT
 		},
 	}
 	concurrencyCache := schedulerTestConcurrencyCache{
-		acquireResults: map[int64]bool{21652: true, 21653: true},
+		acquireResults: map[int64]bool{21651: true, 21652: true, 21653: true},
 		loadMap: map[int64]*AccountLoadInfo{
+			21651: {AccountID: 21651, LoadRate: 0},
 			21652: {AccountID: 21652, LoadRate: 0},
 			21653: {AccountID: 21653, LoadRate: 0},
 		},
@@ -2786,9 +2787,9 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_ExhaustedPlusFallsBackT
 	require.NoError(t, err)
 	require.NotNil(t, selection)
 	require.NotNil(t, selection.Account)
-	require.Equal(t, int64(21652), selection.Account.ID)
-	require.Equal(t, string(openAIAccountPoolPro), decision.SelectedPool)
-	require.Equal(t, string(openAIAccountPoolPlus), decision.FallbackFromPool)
+	require.Equal(t, int64(21651), selection.Account.ID)
+	require.Equal(t, string(openAIAccountPoolPlus), decision.SelectedPool)
+	require.Empty(t, decision.FallbackFromPool)
 	if selection.ReleaseFunc != nil {
 		selection.ReleaseFunc()
 	}
@@ -2834,7 +2835,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_StickyProStaysBound(t *
 	}
 }
 
-func TestOpenAIGatewayService_SelectAccountWithScheduler_StickyPlusAtLongWindowAdmissionReserveReselectsPro(t *testing.T) {
+func TestOpenAIGatewayService_SelectAccountWithScheduler_StickyPlusAtLongWindowRemainsBound(t *testing.T) {
 	ctx := context.Background()
 	groupID := int64(10127)
 	now := time.Now().UTC()
@@ -2862,17 +2863,17 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_StickyPlusAtLongWindowA
 		cache:              cache,
 		cfg:                newSchedulerTestSubscriptionPriorityConfig(),
 		rateLimitService:   newOpenAIAdvancedSchedulerRateLimitService("true", "", "true"),
-		concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{acquireResults: map[int64]bool{21672: true}}),
+		concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{acquireResults: map[int64]bool{21671: true, 21672: true}}),
 	}
 
 	selection, decision, err := svc.SelectAccountWithScheduler(ctx, &groupID, "", "session_sticky_exhausted_plus", "gpt-5.1", nil, OpenAIUpstreamTransportAny, false)
 	require.NoError(t, err)
 	require.NotNil(t, selection)
 	require.NotNil(t, selection.Account)
-	require.Equal(t, int64(21672), selection.Account.ID)
-	require.Equal(t, openAIAccountScheduleLayerLoadBalance, decision.Layer)
-	require.Equal(t, string(openAIAccountPoolPro), decision.SelectedPool)
-	require.Positive(t, cache.deletedSessions["openai:session_sticky_exhausted_plus"])
+	require.Equal(t, int64(21671), selection.Account.ID)
+	require.Equal(t, openAIAccountScheduleLayerSessionSticky, decision.Layer)
+	require.Equal(t, string(openAIAccountPoolPlus), decision.SelectedPool)
+	require.Zero(t, cache.deletedSessions["openai:session_sticky_exhausted_plus"])
 	if selection.ReleaseFunc != nil {
 		selection.ReleaseFunc()
 	}
