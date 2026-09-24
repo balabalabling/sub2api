@@ -85,7 +85,7 @@ func TestOpenAIPlusQuotaRank(t *testing.T) {
 	require.Equal(t, openAIPlusQuotaStale, openAIPlusQuotaRankFor(stale, now).State)
 	require.Equal(t, openAIPlusQuotaMissing, openAIPlusQuotaRankFor(&Account{}, now).State)
 	require.True(t, openAIPlusAccountHasHeadroom(stale, now))
-	require.False(t, openAIPlusAccountHasHeadroom(&Account{Extra: map[string]any{
+	require.True(t, openAIPlusAccountHasHeadroom(&Account{Extra: map[string]any{
 		"codex_5h_used_percent":  100.0,
 		"codex_usage_updated_at": now.Add(-time.Minute).Format(time.RFC3339),
 	}}, now))
@@ -143,7 +143,7 @@ func TestOpenAIPlusLongQuotaExhausted(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			account := &Account{Extra: tt.extra}
 			require.Equal(t, tt.want, openAIPlusLongQuotaExhausted(account, now))
-			require.Equal(t, !tt.want, openAIPlusAccountHasHeadroom(account, now))
+			require.True(t, openAIPlusAccountHasHeadroom(account, now), "PLUS accounts remain schedulable regardless of cached long-window usage")
 		})
 	}
 }

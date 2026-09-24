@@ -97,25 +97,19 @@ func openAIPlusQuotaRankFor(account *Account, now time.Time) openAIPlusQuotaRank
 	}
 }
 
-// openAIPlusAccountHasHeadroom keeps a fresh, exhausted PLUS account out of
-// the PLUS pool so selection can continue to PRO/API Key. A stale or missing
-// snapshot remains eligible: the caller may still use it while the next
-// upstream response refreshes quota metadata.
+// openAIPlusAccountHasHeadroom keeps the tiered sticky-selection hook in place
+// while allowing PLUS accounts to continue receiving requests after their
+// locally cached quota reaches 99% or 100%. The upstream account remains the
+// source of truth for any hard rejection; the scheduler no longer preemptively
+// removes it from the PLUS pool.
 func openAIPlusAccountHasHeadroom(account *Account, now time.Time) bool {
-	if openAIPlusLongQuotaExhausted(account, now) {
-		return false
-	}
-	rank := openAIPlusQuotaRankFor(account, now)
-	return rank.State != openAIPlusQuotaFresh || rank.RemainingPercent > 0
+	return true
 }
 
-// openAIPlusLongQuotaExhausted keeps a PLUS account out of the tier when an
-// observed weekly or monthly window reaches the admission reserve. The final
-// 1% is protected and another percentage point absorbs the response-delayed
-// quota snapshot, so an account stops accepting new work at 98% used. The
-// upstream currently persists the weekly window as codex_7d_*; the monthly
-// aliases are accepted as forward-compatible input for providers that expose
-// a 30-day window. Missing or already-reset windows do not block selection.
+// openAIPlusLongQuotaExhausted reports the legacy admission-reserve condition
+// for diagnostics and regression coverage. It is intentionally no longer used
+// to gate scheduling: cached quota metadata does not preemptively stop PLUS
+// traffic.
 func openAIPlusLongQuotaExhausted(account *Account, now time.Time) bool {
 	if account == nil || len(account.Extra) == 0 {
 		return false
