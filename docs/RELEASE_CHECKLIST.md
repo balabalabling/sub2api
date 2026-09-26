@@ -71,7 +71,7 @@
 - VPS 发布前后的容器状态、健康检查和异常日志摘要。
 - 本次新增问题、根因、修复提交，以及是否补充了回归测试或门禁。
 
-### 2026-09-25：官方 v0.2.8 合并阻塞（未提交）
+### 2026-09-25：官方 v0.2.8 合并阻塞（已解决）
 
 - 官方稳定版：`v0.2.8`，发布日期 `2026-09-23`；annotated tag `d7a82d78ca51d42be41cb4daa3510ea401defe9f`，剥离提交 `fd80b08c90b55edcad5b00171b53f08721d30da1`。
 - 基线：`origin/main`=`0e6d20d6e`；`v0.2.8` 相对基线新增 308 个提交；`upstream/main`=`a3eb7ef30` 另有 1 个发布后版本同步提交。
@@ -80,7 +80,7 @@
 - 官方新增迁移 `238b_content_moderation_engine_meta.sql`、`239_channel_reasoning_effort_multipliers.sql`、`240_affiliate_ledger_operation_id.sql` 为待合并审查项；未发现 `go.mod`、`go.sum`、`package.json` 或前端锁文件变化，仅新增 release-tool 依赖清单。
 - `v0.2.8` tag 内 `backend/cmd/server/VERSION` 仍为 `0.2.7`，`upstream/main` 的后续提交才同步为 `0.2.8`。
 - CI/Security/Docker run URL：未生成；测试、安全预检、提交、推送、镜像构建与发布均未执行。VPS 仅做只读回读：三容器 healthy，`/health`=`{"status":"ok"}`，生产镜像 `ghcr.io/balabalabling/sub2api@sha256:4258fc0072ef191376f7455dc6b0a18cc4a2bf5e79e881b4427c8276521b1810`。
-- 待人工处理：解决 4 个冲突，保留现有调度和自定义迁移/Ent 字段，重新生成并检查 `wire_gen.go` provider 唯一性，再按本清单门禁继续。
+- 处理结果：4 个冲突已解决；现有调度、自定义迁移/Ent 字段和 `wire_gen.go` provider 唯一性均已验证，详见 2026-09-26 发布完成记录。
 
 ### 2026-09-26：官方 v0.2.8 冲突解决（本地门禁完成，远程发布待执行）
 
@@ -91,9 +91,9 @@
 - 本地验证：Go 1.27.0 下 `go test ./... -count=1` 通过；`govulncheck ./...` 报告代码调用链 0 个漏洞；前端全量 334 个测试文件、2487 个测试通过；`vue-tsc -b` 与 Vite 生产构建通过。
 - 前端审计：`xlsx` 的 2 个 high 为既有审计例外，`python tools/check_pnpm_audit_exceptions.py --audit frontend/audit.json --exceptions .github/audit-exceptions.yml` 通过；例外到期日为 `2026-10-06`。
 - 合并期间发现并处理：官方新增的 URL 归一化测试按官方默认 `OpenAI` provider 查找，与本地保留的历史 `go2me` 默认配置冲突；测试改为验证本地 `go2me` provider 的 `/v1` URL 归一化，图片/调度行为未改变。
-- CI/Security/Docker run URL：待推送 `main` 后回填。
-- 镜像摘要与 VPS 发布前后状态：待 GitHub Actions 构建成功后回填。
-- 当前人工门槛：推送后等待 CI、Security Scan、Build Docker Image 全部成功；生产容器重建前记录旧镜像摘要并确认发布窗口。
+- CI/Security/Docker run URL：已在下方“发布完成”记录回填。
+- 镜像摘要与 VPS 发布前后状态：已在下方“发布完成”记录回填。
+- 当前状态：CI、Security Scan、Build Docker Image 均成功，已记录旧镜像摘要并完成生产发布。
 
 ### 2026-09-26：官方 v0.2.8 发布完成
 
