@@ -94,3 +94,18 @@
 - CI/Security/Docker run URL：待推送 `main` 后回填。
 - 镜像摘要与 VPS 发布前后状态：待 GitHub Actions 构建成功后回填。
 - 当前人工门槛：推送后等待 CI、Security Scan、Build Docker Image 全部成功；生产容器重建前记录旧镜像摘要并确认发布窗口。
+
+### 2026-09-26：官方 v0.2.8 发布完成
+
+- **发布提交**：`bb99583c02220a54f55805fdd80b2cd3e5e4b80b`；功能合并提交 `68147dc46`；官方稳定版 `v0.2.8`，tag SHA `d7a82d78ca51d42be41cb4daa3510ea401defe9f`；对应 `upstream/main` 为 `a3eb7ef302961cba716dc78b39b93b60c467db0e`。
+- **冲突与兼容**：4 个冲突文件已解决；保留图片路由兼容代码、PLUS→PRO→API Key 调度池和本地迁移/Ent 字段，同时接入官方图片能力判断、sticky session、Claude Code 默认设置及新增迁移；`wire_gen.go` provider 无重复声明。
+- **验证结果**：Go 全量测试、`govulncheck`、前端 2487 项测试、`vue-tsc`、Vite 构建和前端审计例外检查均通过。`xlsx` 的 2 个 high 仍属于既有例外，当前有效期至 `2026-10-06`。
+- **GitHub Actions**：
+  - CI：<https://github.com/balabalabling/sub2api/actions/runs/36236893474>，成功。
+  - Security Scan：<https://github.com/balabalabling/sub2api/actions/runs/36236893471>，成功。
+  - Build Docker Image：<https://github.com/balabalabling/sub2api/actions/runs/36236893482>，成功。
+- **镜像**：`ghcr.io/balabalabling/sub2api:latest` 与提交标签 `bb99583c02220a54f55805fdd80b2cd3e5e4b80b` 指向同一镜像，digest 为 `sha256:d68e005d11345bfa30488b3ec8b21bb846b4fd51c536067f8f142f3034b48a03`。
+- **VPS 发布前**：`sub2api`、PostgreSQL、Redis 均为 healthy；旧镜像 digest 为 `sha256:4258fc0072ef191376f7455dc6b0a18cc4a2bf5e79e881b4427c8276521b1810`。
+- **VPS 发布动作**：在 `/opt/sub2api` 仅执行 `docker compose pull sub2api` 与 `docker compose up -d sub2api`，PostgreSQL/Redis 未重建。
+- **VPS 发布后**：三个容器均为 healthy；`http://127.0.0.1:8080/health` 返回 `{"status":"ok"}`；运行镜像 digest 为 `sha256:d68e005d11345bfa30488b3ec8b21bb846b4fd51c536067f8f142f3034b48a03`。启动后的 OpenAI Responses 请求返回 200，图片生成桥接日志正常出现；无需回滚。
+- **新发现问题**：本次未发现阻断发布的问题。启动日志仍提示 `server.trusted_proxies` 与 `CORS allowed_origins` 未配置，当前按既有生产配置继续运行，后续需结合反向代理和访问来源人工确认是否补充。
