@@ -3531,8 +3531,8 @@ func TestGatewayService_GroupResolution_ReusesContextGroup(t *testing.T) {
 	account, err := svc.SelectAccountForModelWithExclusions(ctx, &groupID, "", "claude-3-5-sonnet-20241022", nil)
 	require.NoError(t, err)
 	require.NotNil(t, account)
-	require.Equal(t, 1, groupRepo.getByIDCalls) // +1 for require_privacy_set check
-	require.Equal(t, 0, groupRepo.getByIDLiteCalls)
+	require.Equal(t, 0, groupRepo.getByIDCalls)
+	require.Equal(t, 1, groupRepo.getByIDLiteCalls) // require_privacy_set，不走账号计数聚合
 }
 
 func TestGatewayService_GroupResolution_IgnoresInvalidContextGroup(t *testing.T) {
@@ -3574,8 +3574,8 @@ func TestGatewayService_GroupResolution_IgnoresInvalidContextGroup(t *testing.T)
 	account, err := svc.SelectAccountForModelWithExclusions(ctx, &groupID, "", "claude-3-5-sonnet-20241022", nil)
 	require.NoError(t, err)
 	require.NotNil(t, account)
-	require.Equal(t, 1, groupRepo.getByIDCalls) // +1 for require_privacy_set check
-	require.Equal(t, 1, groupRepo.getByIDLiteCalls)
+	require.Equal(t, 0, groupRepo.getByIDCalls)
+	require.Equal(t, 2, groupRepo.getByIDLiteCalls) // 分组解析 + require_privacy_set
 }
 
 func TestGatewayService_GroupContext_OverwritesInvalidContextGroup(t *testing.T) {
@@ -3644,8 +3644,8 @@ func TestGatewayService_GroupResolution_FallbackUsesLiteOnce(t *testing.T) {
 	account, err := svc.SelectAccountForModelWithExclusions(ctx, &groupID, "", "claude-3-5-sonnet-20241022", nil)
 	require.NoError(t, err)
 	require.NotNil(t, account)
-	require.Equal(t, 1, groupRepo.getByIDCalls) // +1 for require_privacy_set check
-	require.Equal(t, 1, groupRepo.getByIDLiteCalls)
+	require.Equal(t, 0, groupRepo.getByIDCalls)
+	require.Equal(t, 2, groupRepo.getByIDLiteCalls) // fallback 解析 + require_privacy_set
 }
 
 func TestGatewayService_ResolveGatewayGroup_DetectsFallbackCycle(t *testing.T) {
