@@ -109,3 +109,20 @@
 - **VPS 发布动作**：在 `/opt/sub2api` 仅执行 `docker compose pull sub2api` 与 `docker compose up -d sub2api`，PostgreSQL/Redis 未重建。
 - **VPS 发布后**：三个容器均为 healthy；`http://127.0.0.1:8080/health` 返回 `{"status":"ok"}`；运行镜像 digest 为 `sha256:d68e005d11345bfa30488b3ec8b21bb846b4fd51c536067f8f142f3034b48a03`。启动后的 OpenAI Responses 请求返回 200，图片生成桥接日志正常出现；无需回滚。
 - **新发现问题**：本次未发现阻断发布的问题。启动日志仍提示 `server.trusted_proxies` 与 `CORS allowed_origins` 未配置，当前按既有生产配置继续运行，后续需结合反向代理和访问来源人工确认是否补充。
+
+### 2026-09-26：xlsx 审计例外修复与生产发布
+
+- **官方版本基线**：当前 `main` 已包含官方稳定版 `v0.2.8`；本次为其后的前端依赖安全修复，不是新增官方 release。未改动图片路由兼容代码、PLUS→PRO→API Key 调度和数据库迁移。
+- **修复提交**：`ebe461705756ae590ecc25034a98d996159b5b02`（`fix: remove xlsx audit exceptions`）。
+- **变更内容**：将 `frontend/package.json` 的 `xlsx` 固定到 SheetJS `0.20.3` 官方 CDN tarball，刷新 `frontend/pnpm-lock.yaml` 并移除旧版 `0.18.5` 及其专属依赖；删除 `.github/audit-exceptions.yml` 中 `GHSA-4r6h-8v6p-xvw6` / `GHSA-5pgg-2g8v-p4x9` 两条例外。管理员 `UsageView` 仍保持动态导入。
+- **本地验证**：`pnpm install --frozen-lockfile` 通过；管理员 UsageView 测试 `14/14` 通过。此前本轮前端全量 `334` 个测试文件、`2487` 个测试、`vue-tsc -b`、Vite 生产构建和审计例外校验均通过。
+- **审计结果**：`xlsx` 及对应两个 CVE/GHSA 已从审计结果消失；`high=0`、`critical=0`、`moderate=13`、`low=1`。`pnpm audit` 的退出码仍为 1，原因是剩余 moderate/low 依赖项；Security Scan 的 high/critical 门禁已通过。
+- **GitHub Actions**：
+  - CI：<https://github.com/balabalabling/sub2api/actions/runs/36245614751>，成功。
+  - Security Scan：<https://github.com/balabalabling/sub2api/actions/runs/36245614806>，成功。
+  - Build Docker Image：<https://github.com/balabalabling/sub2api/actions/runs/36245614775>，成功。
+- **镜像**：`ghcr.io/balabalabling/sub2api:latest` 与提交标签 `ebe461705756ae590ecc25034a98d996159b5b02` 指向同一 digest：`sha256:278a1f38e9597176fb7b20fe2d4e593ab66012025edf5cc672133f7eb585e746`。
+- **VPS 发布前**：`sub2api`、PostgreSQL、Redis 均为 healthy；旧镜像 digest 为 `sha256:d68e005d11345bfa30488b3ec8b21bb846b4fd51c536067f8f142f3034b48a03`；`http://127.0.0.1:8080/health` 返回 `{"status":"ok"}`。
+- **VPS 发布动作**：在 `/opt/sub2api` 仅执行 `docker compose pull sub2api` 与 `docker compose up -d sub2api`，PostgreSQL/Redis 未重建。
+- **VPS 发布后**：三个容器均为 healthy；运行镜像 digest 为上述 `sha256:278a1f38…`；健康接口返回 `{"status":"ok"}`。应用启动完成，最近 `/v1/responses`、`/v1/alpha/search` 请求均返回 200，`image_generation` bridge 日志正常；无需回滚。
+- **新发现问题**：生产启动日志仍提示 `security.url_allowlist.enabled=false`、`server.trusted_proxies` 未配置、`CORS allowed_origins` 未配置，当前按既有生产配置运行，后续需人工确认是否补齐；VPS 上按服务名调用 `docker compose logs sub2api` 返回 `no such service`，本次使用 `docker logs sub2api` 完成日志验收，容器和健康状态不受影响。
