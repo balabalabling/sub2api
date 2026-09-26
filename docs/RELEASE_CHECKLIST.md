@@ -70,3 +70,27 @@
 - Docker workflow 的 run URL、镜像 digest/commit tag。
 - VPS 发布前后的容器状态、健康检查和异常日志摘要。
 - 本次新增问题、根因、修复提交，以及是否补充了回归测试或门禁。
+
+### 2026-09-25：官方 v0.2.8 合并阻塞（未提交）
+
+- 官方稳定版：`v0.2.8`，发布日期 `2026-09-23`；annotated tag `d7a82d78ca51d42be41cb4daa3510ea401defe9f`，剥离提交 `fd80b08c90b55edcad5b00171b53f08721d30da1`。
+- 基线：`origin/main`=`0e6d20d6e`；`v0.2.8` 相对基线新增 308 个提交；`upstream/main`=`a3eb7ef30` 另有 1 个发布后版本同步提交。
+- 独立分支：`codex/upgrade-v0.2.8`。合并因以下 4 个冲突中止：`backend/cmd/server/wire_gen.go`、`backend/internal/handler/openai_images.go`、`backend/internal/service/gateway_service.go`、`backend/internal/service/setting_parse.go`。
+- 关键风险：需要同时保留 PLUS→PRO→API Key 调度、上游 sticky-session/Claude Code 设置、StoreHandler 与 OpenCode Go provider；官方 tag 同时删除自定义迁移 `145_storefront.sql`、`151_subscription_plan_key_quota.sql`、`152_payment_order_api_key_target.sql`，并移除对应 Ent 字段，需先完成数据与生成代码方案。
+- 官方新增迁移 `238b_content_moderation_engine_meta.sql`、`239_channel_reasoning_effort_multipliers.sql`、`240_affiliate_ledger_operation_id.sql` 为待合并审查项；未发现 `go.mod`、`go.sum`、`package.json` 或前端锁文件变化，仅新增 release-tool 依赖清单。
+- `v0.2.8` tag 内 `backend/cmd/server/VERSION` 仍为 `0.2.7`，`upstream/main` 的后续提交才同步为 `0.2.8`。
+- CI/Security/Docker run URL：未生成；测试、安全预检、提交、推送、镜像构建与发布均未执行。VPS 仅做只读回读：三容器 healthy，`/health`=`{"status":"ok"}`，生产镜像 `ghcr.io/balabalabling/sub2api@sha256:4258fc0072ef191376f7455dc6b0a18cc4a2bf5e79e881b4427c8276521b1810`。
+- 待人工处理：解决 4 个冲突，保留现有调度和自定义迁移/Ent 字段，重新生成并检查 `wire_gen.go` provider 唯一性，再按本清单门禁继续。
+
+### 2026-09-26：官方 v0.2.8 冲突解决（本地门禁完成，远程发布待执行）
+
+- 合并提交：`68147dc46`（`merge: integrate official Sub2API v0.2.8`）；官方稳定 tag：`v0.2.8`。
+- 冲突处理：`backend/cmd/server/wire_gen.go` 同时保留 Ollama Cloud 与 OpenCode Go provider；`backend/internal/handler/openai_images.go` 同时保留图片模型 `routingAccountIDs` 与官方 `RequiredCapabilityForModel(channelMapping.MappedModel)`；`backend/internal/service/gateway_service.go` 同时保留本地调度池/回退字段与官方 sticky-session 字段；`backend/internal/service/setting_parse.go` 加入 Claude Code 默认设置并保留 PLUS→PRO→API Key 默认优先级。
+- 图片路由决策：保留兼容代码；生产当前没有启用中的 `model_routing` 分组，但 `OpenAI-plus` 仍保存关闭状态的 `gpt-image-* -> [9]` 历史规则。
+- 数据迁移：保留本地 `145_storefront.sql`、`151_subscription_plan_key_quota.sql`、`152_payment_order_api_key_target.sql` 及相关 Ent 字段；纳入官方 `238b_content_moderation_engine_meta.sql`、`239_channel_reasoning_effort_multipliers.sql`、`240_affiliate_ledger_operation_id.sql`，迁移测试通过。
+- 本地验证：Go 1.27.0 下 `go test ./... -count=1` 通过；`govulncheck ./...` 报告代码调用链 0 个漏洞；前端全量 334 个测试文件、2487 个测试通过；`vue-tsc -b` 与 Vite 生产构建通过。
+- 前端审计：`xlsx` 的 2 个 high 为既有审计例外，`python tools/check_pnpm_audit_exceptions.py --audit frontend/audit.json --exceptions .github/audit-exceptions.yml` 通过；例外到期日为 `2026-10-06`。
+- 合并期间发现并处理：官方新增的 URL 归一化测试按官方默认 `OpenAI` provider 查找，与本地保留的历史 `go2me` 默认配置冲突；测试改为验证本地 `go2me` provider 的 `/v1` URL 归一化，图片/调度行为未改变。
+- CI/Security/Docker run URL：待推送 `main` 后回填。
+- 镜像摘要与 VPS 发布前后状态：待 GitHub Actions 构建成功后回填。
+- 当前人工门槛：推送后等待 CI、Security Scan、Build Docker Image 全部成功；生产容器重建前记录旧镜像摘要并确认发布窗口。
