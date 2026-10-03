@@ -84,7 +84,6 @@ type CreateOrderRequest struct {
 	PaymentSource   string
 	OrderType       string
 	PlanID          int64
-	APIKeyID        int64
 	Locale          string
 }
 
@@ -93,6 +92,7 @@ type CreateOrderResponse struct {
 	Amount                        float64                         `json:"amount"`
 	PayAmount                     float64                         `json:"pay_amount"`
 	FeeRate                       float64                         `json:"fee_rate"`
+	BonusAmount                   float64                         `json:"bonus_amount"`
 	Status                        string                          `json:"status"`
 	ResultType                    payment.CreatePaymentResultType `json:"result_type,omitempty"`
 	PaymentType                   string                          `json:"payment_type"`
@@ -196,7 +196,6 @@ type PaymentService struct {
 	configService            *PaymentConfigService
 	userRepo                 UserRepository
 	groupRepo                GroupRepository
-	apiKeyCacheInvalidator   APIKeyAuthCacheInvalidator
 	resumeService            *PaymentResumeService
 	affiliateService         *AffiliateService
 	notificationEmailService *NotificationEmailService
@@ -210,10 +209,6 @@ func NewPaymentService(entClient *dbent.Client, registry *payment.Registry, load
 
 func (s *PaymentService) SetNotificationEmailService(notificationEmailService *NotificationEmailService) {
 	s.notificationEmailService = notificationEmailService
-}
-
-func (s *PaymentService) SetAPIKeyAuthCacheInvalidator(invalidator APIKeyAuthCacheInvalidator) {
-	s.apiKeyCacheInvalidator = invalidator
 }
 
 // --- Provider Registry ---

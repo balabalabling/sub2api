@@ -39,10 +39,8 @@ const (
 
 // Order types distinguish balance recharges from subscription purchases.
 const (
-	OrderTypeBalance        = "balance"
-	OrderTypeSubscription   = "subscription"
-	OrderTypeAPIKeyRecharge = "api_key_recharge"
-	OrderTypeStore          = "store"
+	OrderTypeBalance      = "balance"
+	OrderTypeSubscription = "subscription"
 )
 
 // Entity statuses shared across users, groups, etc.

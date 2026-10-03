@@ -33,6 +33,8 @@ type PaymentOrder struct {
 	PayAmount float64 `json:"pay_amount,omitempty"`
 	// FeeRate holds the value of the "fee_rate" field.
 	FeeRate float64 `json:"fee_rate,omitempty"`
+	// BonusAmount holds the value of the "bonus_amount" field.
+	BonusAmount float64 `json:"bonus_amount,omitempty"`
 	// RechargeCode holds the value of the "recharge_code" field.
 	RechargeCode string `json:"recharge_code,omitempty"`
 	// OutTradeNo holds the value of the "out_trade_no" field.
@@ -55,8 +57,6 @@ type PaymentOrder struct {
 	SubscriptionGroupID *int64 `json:"subscription_group_id,omitempty"`
 	// SubscriptionDays holds the value of the "subscription_days" field.
 	SubscriptionDays *int `json:"subscription_days,omitempty"`
-	// APIKeyID holds the value of the "api_key_id" field.
-	APIKeyID *int64 `json:"api_key_id,omitempty"`
 	// ProviderInstanceID holds the value of the "provider_instance_id" field.
 	ProviderInstanceID *string `json:"provider_instance_id,omitempty"`
 	// ProviderKey holds the value of the "provider_key" field.
@@ -134,9 +134,9 @@ func (*PaymentOrder) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case paymentorder.FieldForceRefund:
 			values[i] = new(sql.NullBool)
-		case paymentorder.FieldAmount, paymentorder.FieldPayAmount, paymentorder.FieldFeeRate, paymentorder.FieldRefundAmount:
+		case paymentorder.FieldAmount, paymentorder.FieldPayAmount, paymentorder.FieldFeeRate, paymentorder.FieldBonusAmount, paymentorder.FieldRefundAmount:
 			values[i] = new(sql.NullFloat64)
-		case paymentorder.FieldID, paymentorder.FieldUserID, paymentorder.FieldPlanID, paymentorder.FieldSubscriptionGroupID, paymentorder.FieldSubscriptionDays, paymentorder.FieldAPIKeyID:
+		case paymentorder.FieldID, paymentorder.FieldUserID, paymentorder.FieldPlanID, paymentorder.FieldSubscriptionGroupID, paymentorder.FieldSubscriptionDays:
 			values[i] = new(sql.NullInt64)
 		case paymentorder.FieldUserEmail, paymentorder.FieldUserName, paymentorder.FieldUserNotes, paymentorder.FieldRechargeCode, paymentorder.FieldOutTradeNo, paymentorder.FieldPaymentType, paymentorder.FieldPaymentTradeNo, paymentorder.FieldPayURL, paymentorder.FieldQrCode, paymentorder.FieldQrCodeImg, paymentorder.FieldOrderType, paymentorder.FieldProviderInstanceID, paymentorder.FieldProviderKey, paymentorder.FieldStatus, paymentorder.FieldRefundReason, paymentorder.FieldRefundRequestReason, paymentorder.FieldRefundRequestedBy, paymentorder.FieldFailedReason, paymentorder.FieldClientIP, paymentorder.FieldSrcHost, paymentorder.FieldSrcURL:
 			values[i] = new(sql.NullString)
@@ -205,6 +205,12 @@ func (_m *PaymentOrder) assignValues(columns []string, values []any) error {
 				return fmt.Errorf("unexpected type %T for field fee_rate", values[i])
 			} else if value.Valid {
 				_m.FeeRate = value.Float64
+			}
+		case paymentorder.FieldBonusAmount:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field bonus_amount", values[i])
+			} else if value.Valid {
+				_m.BonusAmount = value.Float64
 			}
 		case paymentorder.FieldRechargeCode:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -277,13 +283,6 @@ func (_m *PaymentOrder) assignValues(columns []string, values []any) error {
 			} else if value.Valid {
 				_m.SubscriptionDays = new(int)
 				*_m.SubscriptionDays = int(value.Int64)
-			}
-		case paymentorder.FieldAPIKeyID:
-			if value, ok := values[i].(*sql.NullInt64); !ok {
-				return fmt.Errorf("unexpected type %T for field api_key_id", values[i])
-			} else if value.Valid {
-				_m.APIKeyID = new(int64)
-				*_m.APIKeyID = value.Int64
 			}
 		case paymentorder.FieldProviderInstanceID:
 			if value, ok := values[i].(*sql.NullString); !ok {
@@ -489,6 +488,9 @@ func (_m *PaymentOrder) String() string {
 	builder.WriteString("fee_rate=")
 	builder.WriteString(fmt.Sprintf("%v", _m.FeeRate))
 	builder.WriteString(", ")
+	builder.WriteString("bonus_amount=")
+	builder.WriteString(fmt.Sprintf("%v", _m.BonusAmount))
+	builder.WriteString(", ")
 	builder.WriteString("recharge_code=")
 	builder.WriteString(_m.RechargeCode)
 	builder.WriteString(", ")
@@ -531,11 +533,6 @@ func (_m *PaymentOrder) String() string {
 	builder.WriteString(", ")
 	if v := _m.SubscriptionDays; v != nil {
 		builder.WriteString("subscription_days=")
-		builder.WriteString(fmt.Sprintf("%v", *v))
-	}
-	builder.WriteString(", ")
-	if v := _m.APIKeyID; v != nil {
-		builder.WriteString("api_key_id=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")

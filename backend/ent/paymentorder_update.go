@@ -154,6 +154,27 @@ func (_u *PaymentOrderUpdate) AddFeeRate(v float64) *PaymentOrderUpdate {
 	return _u
 }
 
+// SetBonusAmount sets the "bonus_amount" field.
+func (_u *PaymentOrderUpdate) SetBonusAmount(v float64) *PaymentOrderUpdate {
+	_u.mutation.ResetBonusAmount()
+	_u.mutation.SetBonusAmount(v)
+	return _u
+}
+
+// SetNillableBonusAmount sets the "bonus_amount" field if the given value is not nil.
+func (_u *PaymentOrderUpdate) SetNillableBonusAmount(v *float64) *PaymentOrderUpdate {
+	if v != nil {
+		_u.SetBonusAmount(*v)
+	}
+	return _u
+}
+
+// AddBonusAmount adds value to the "bonus_amount" field.
+func (_u *PaymentOrderUpdate) AddBonusAmount(v float64) *PaymentOrderUpdate {
+	_u.mutation.AddBonusAmount(v)
+	return _u
+}
+
 // SetRechargeCode sets the "recharge_code" field.
 func (_u *PaymentOrderUpdate) SetRechargeCode(v string) *PaymentOrderUpdate {
 	_u.mutation.SetRechargeCode(v)
@@ -362,33 +383,6 @@ func (_u *PaymentOrderUpdate) AddSubscriptionDays(v int) *PaymentOrderUpdate {
 // ClearSubscriptionDays clears the value of the "subscription_days" field.
 func (_u *PaymentOrderUpdate) ClearSubscriptionDays() *PaymentOrderUpdate {
 	_u.mutation.ClearSubscriptionDays()
-	return _u
-}
-
-// SetAPIKeyID sets the "api_key_id" field.
-func (_u *PaymentOrderUpdate) SetAPIKeyID(v int64) *PaymentOrderUpdate {
-	_u.mutation.ResetAPIKeyID()
-	_u.mutation.SetAPIKeyID(v)
-	return _u
-}
-
-// SetNillableAPIKeyID sets the "api_key_id" field if the given value is not nil.
-func (_u *PaymentOrderUpdate) SetNillableAPIKeyID(v *int64) *PaymentOrderUpdate {
-	if v != nil {
-		_u.SetAPIKeyID(*v)
-	}
-	return _u
-}
-
-// AddAPIKeyID adds value to the "api_key_id" field.
-func (_u *PaymentOrderUpdate) AddAPIKeyID(v int64) *PaymentOrderUpdate {
-	_u.mutation.AddAPIKeyID(v)
-	return _u
-}
-
-// ClearAPIKeyID clears the value of the "api_key_id" field.
-func (_u *PaymentOrderUpdate) ClearAPIKeyID() *PaymentOrderUpdate {
-	_u.mutation.ClearAPIKeyID()
 	return _u
 }
 
@@ -908,6 +902,12 @@ func (_u *PaymentOrderUpdate) sqlSave(ctx context.Context) (_node int, err error
 	if value, ok := _u.mutation.AddedFeeRate(); ok {
 		_spec.AddField(paymentorder.FieldFeeRate, field.TypeFloat64, value)
 	}
+	if value, ok := _u.mutation.BonusAmount(); ok {
+		_spec.SetField(paymentorder.FieldBonusAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedBonusAmount(); ok {
+		_spec.AddField(paymentorder.FieldBonusAmount, field.TypeFloat64, value)
+	}
 	if value, ok := _u.mutation.RechargeCode(); ok {
 		_spec.SetField(paymentorder.FieldRechargeCode, field.TypeString, value)
 	}
@@ -967,15 +967,6 @@ func (_u *PaymentOrderUpdate) sqlSave(ctx context.Context) (_node int, err error
 	}
 	if _u.mutation.SubscriptionDaysCleared() {
 		_spec.ClearField(paymentorder.FieldSubscriptionDays, field.TypeInt)
-	}
-	if value, ok := _u.mutation.APIKeyID(); ok {
-		_spec.SetField(paymentorder.FieldAPIKeyID, field.TypeInt64, value)
-	}
-	if value, ok := _u.mutation.AddedAPIKeyID(); ok {
-		_spec.AddField(paymentorder.FieldAPIKeyID, field.TypeInt64, value)
-	}
-	if _u.mutation.APIKeyIDCleared() {
-		_spec.ClearField(paymentorder.FieldAPIKeyID, field.TypeInt64)
 	}
 	if value, ok := _u.mutation.ProviderInstanceID(); ok {
 		_spec.SetField(paymentorder.FieldProviderInstanceID, field.TypeString, value)
@@ -1253,6 +1244,27 @@ func (_u *PaymentOrderUpdateOne) AddFeeRate(v float64) *PaymentOrderUpdateOne {
 	return _u
 }
 
+// SetBonusAmount sets the "bonus_amount" field.
+func (_u *PaymentOrderUpdateOne) SetBonusAmount(v float64) *PaymentOrderUpdateOne {
+	_u.mutation.ResetBonusAmount()
+	_u.mutation.SetBonusAmount(v)
+	return _u
+}
+
+// SetNillableBonusAmount sets the "bonus_amount" field if the given value is not nil.
+func (_u *PaymentOrderUpdateOne) SetNillableBonusAmount(v *float64) *PaymentOrderUpdateOne {
+	if v != nil {
+		_u.SetBonusAmount(*v)
+	}
+	return _u
+}
+
+// AddBonusAmount adds value to the "bonus_amount" field.
+func (_u *PaymentOrderUpdateOne) AddBonusAmount(v float64) *PaymentOrderUpdateOne {
+	_u.mutation.AddBonusAmount(v)
+	return _u
+}
+
 // SetRechargeCode sets the "recharge_code" field.
 func (_u *PaymentOrderUpdateOne) SetRechargeCode(v string) *PaymentOrderUpdateOne {
 	_u.mutation.SetRechargeCode(v)
@@ -1461,33 +1473,6 @@ func (_u *PaymentOrderUpdateOne) AddSubscriptionDays(v int) *PaymentOrderUpdateO
 // ClearSubscriptionDays clears the value of the "subscription_days" field.
 func (_u *PaymentOrderUpdateOne) ClearSubscriptionDays() *PaymentOrderUpdateOne {
 	_u.mutation.ClearSubscriptionDays()
-	return _u
-}
-
-// SetAPIKeyID sets the "api_key_id" field.
-func (_u *PaymentOrderUpdateOne) SetAPIKeyID(v int64) *PaymentOrderUpdateOne {
-	_u.mutation.ResetAPIKeyID()
-	_u.mutation.SetAPIKeyID(v)
-	return _u
-}
-
-// SetNillableAPIKeyID sets the "api_key_id" field if the given value is not nil.
-func (_u *PaymentOrderUpdateOne) SetNillableAPIKeyID(v *int64) *PaymentOrderUpdateOne {
-	if v != nil {
-		_u.SetAPIKeyID(*v)
-	}
-	return _u
-}
-
-// AddAPIKeyID adds value to the "api_key_id" field.
-func (_u *PaymentOrderUpdateOne) AddAPIKeyID(v int64) *PaymentOrderUpdateOne {
-	_u.mutation.AddAPIKeyID(v)
-	return _u
-}
-
-// ClearAPIKeyID clears the value of the "api_key_id" field.
-func (_u *PaymentOrderUpdateOne) ClearAPIKeyID() *PaymentOrderUpdateOne {
-	_u.mutation.ClearAPIKeyID()
 	return _u
 }
 
@@ -2037,6 +2022,12 @@ func (_u *PaymentOrderUpdateOne) sqlSave(ctx context.Context) (_node *PaymentOrd
 	if value, ok := _u.mutation.AddedFeeRate(); ok {
 		_spec.AddField(paymentorder.FieldFeeRate, field.TypeFloat64, value)
 	}
+	if value, ok := _u.mutation.BonusAmount(); ok {
+		_spec.SetField(paymentorder.FieldBonusAmount, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedBonusAmount(); ok {
+		_spec.AddField(paymentorder.FieldBonusAmount, field.TypeFloat64, value)
+	}
 	if value, ok := _u.mutation.RechargeCode(); ok {
 		_spec.SetField(paymentorder.FieldRechargeCode, field.TypeString, value)
 	}
@@ -2096,15 +2087,6 @@ func (_u *PaymentOrderUpdateOne) sqlSave(ctx context.Context) (_node *PaymentOrd
 	}
 	if _u.mutation.SubscriptionDaysCleared() {
 		_spec.ClearField(paymentorder.FieldSubscriptionDays, field.TypeInt)
-	}
-	if value, ok := _u.mutation.APIKeyID(); ok {
-		_spec.SetField(paymentorder.FieldAPIKeyID, field.TypeInt64, value)
-	}
-	if value, ok := _u.mutation.AddedAPIKeyID(); ok {
-		_spec.AddField(paymentorder.FieldAPIKeyID, field.TypeInt64, value)
-	}
-	if _u.mutation.APIKeyIDCleared() {
-		_spec.ClearField(paymentorder.FieldAPIKeyID, field.TypeInt64)
 	}
 	if value, ok := _u.mutation.ProviderInstanceID(); ok {
 		_spec.SetField(paymentorder.FieldProviderInstanceID, field.TypeString, value)

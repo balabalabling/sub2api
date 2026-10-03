@@ -81,6 +81,20 @@ func (_c *PaymentOrderCreate) SetNillableFeeRate(v *float64) *PaymentOrderCreate
 	return _c
 }
 
+// SetBonusAmount sets the "bonus_amount" field.
+func (_c *PaymentOrderCreate) SetBonusAmount(v float64) *PaymentOrderCreate {
+	_c.mutation.SetBonusAmount(v)
+	return _c
+}
+
+// SetNillableBonusAmount sets the "bonus_amount" field if the given value is not nil.
+func (_c *PaymentOrderCreate) SetNillableBonusAmount(v *float64) *PaymentOrderCreate {
+	if v != nil {
+		_c.SetBonusAmount(*v)
+	}
+	return _c
+}
+
 // SetRechargeCode sets the "recharge_code" field.
 func (_c *PaymentOrderCreate) SetRechargeCode(v string) *PaymentOrderCreate {
 	_c.mutation.SetRechargeCode(v)
@@ -207,20 +221,6 @@ func (_c *PaymentOrderCreate) SetSubscriptionDays(v int) *PaymentOrderCreate {
 func (_c *PaymentOrderCreate) SetNillableSubscriptionDays(v *int) *PaymentOrderCreate {
 	if v != nil {
 		_c.SetSubscriptionDays(*v)
-	}
-	return _c
-}
-
-// SetAPIKeyID sets the "api_key_id" field.
-func (_c *PaymentOrderCreate) SetAPIKeyID(v int64) *PaymentOrderCreate {
-	_c.mutation.SetAPIKeyID(v)
-	return _c
-}
-
-// SetNillableAPIKeyID sets the "api_key_id" field if the given value is not nil.
-func (_c *PaymentOrderCreate) SetNillableAPIKeyID(v *int64) *PaymentOrderCreate {
-	if v != nil {
-		_c.SetAPIKeyID(*v)
 	}
 	return _c
 }
@@ -531,6 +531,10 @@ func (_c *PaymentOrderCreate) defaults() {
 		v := paymentorder.DefaultFeeRate
 		_c.mutation.SetFeeRate(v)
 	}
+	if _, ok := _c.mutation.BonusAmount(); !ok {
+		v := paymentorder.DefaultBonusAmount
+		_c.mutation.SetBonusAmount(v)
+	}
 	if _, ok := _c.mutation.OutTradeNo(); !ok {
 		v := paymentorder.DefaultOutTradeNo
 		_c.mutation.SetOutTradeNo(v)
@@ -590,6 +594,9 @@ func (_c *PaymentOrderCreate) check() error {
 	}
 	if _, ok := _c.mutation.FeeRate(); !ok {
 		return &ValidationError{Name: "fee_rate", err: errors.New(`ent: missing required field "PaymentOrder.fee_rate"`)}
+	}
+	if _, ok := _c.mutation.BonusAmount(); !ok {
+		return &ValidationError{Name: "bonus_amount", err: errors.New(`ent: missing required field "PaymentOrder.bonus_amount"`)}
 	}
 	if _, ok := _c.mutation.RechargeCode(); !ok {
 		return &ValidationError{Name: "recharge_code", err: errors.New(`ent: missing required field "PaymentOrder.recharge_code"`)}
@@ -739,6 +746,10 @@ func (_c *PaymentOrderCreate) createSpec() (*PaymentOrder, *sqlgraph.CreateSpec)
 		_spec.SetField(paymentorder.FieldFeeRate, field.TypeFloat64, value)
 		_node.FeeRate = value
 	}
+	if value, ok := _c.mutation.BonusAmount(); ok {
+		_spec.SetField(paymentorder.FieldBonusAmount, field.TypeFloat64, value)
+		_node.BonusAmount = value
+	}
 	if value, ok := _c.mutation.RechargeCode(); ok {
 		_spec.SetField(paymentorder.FieldRechargeCode, field.TypeString, value)
 		_node.RechargeCode = value
@@ -782,10 +793,6 @@ func (_c *PaymentOrderCreate) createSpec() (*PaymentOrder, *sqlgraph.CreateSpec)
 	if value, ok := _c.mutation.SubscriptionDays(); ok {
 		_spec.SetField(paymentorder.FieldSubscriptionDays, field.TypeInt, value)
 		_node.SubscriptionDays = &value
-	}
-	if value, ok := _c.mutation.APIKeyID(); ok {
-		_spec.SetField(paymentorder.FieldAPIKeyID, field.TypeInt64, value)
-		_node.APIKeyID = &value
 	}
 	if value, ok := _c.mutation.ProviderInstanceID(); ok {
 		_spec.SetField(paymentorder.FieldProviderInstanceID, field.TypeString, value)
@@ -1048,6 +1055,24 @@ func (u *PaymentOrderUpsert) AddFeeRate(v float64) *PaymentOrderUpsert {
 	return u
 }
 
+// SetBonusAmount sets the "bonus_amount" field.
+func (u *PaymentOrderUpsert) SetBonusAmount(v float64) *PaymentOrderUpsert {
+	u.Set(paymentorder.FieldBonusAmount, v)
+	return u
+}
+
+// UpdateBonusAmount sets the "bonus_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsert) UpdateBonusAmount() *PaymentOrderUpsert {
+	u.SetExcluded(paymentorder.FieldBonusAmount)
+	return u
+}
+
+// AddBonusAmount adds v to the "bonus_amount" field.
+func (u *PaymentOrderUpsert) AddBonusAmount(v float64) *PaymentOrderUpsert {
+	u.Add(paymentorder.FieldBonusAmount, v)
+	return u
+}
+
 // SetRechargeCode sets the "recharge_code" field.
 func (u *PaymentOrderUpsert) SetRechargeCode(v string) *PaymentOrderUpsert {
 	u.Set(paymentorder.FieldRechargeCode, v)
@@ -1231,30 +1256,6 @@ func (u *PaymentOrderUpsert) AddSubscriptionDays(v int) *PaymentOrderUpsert {
 // ClearSubscriptionDays clears the value of the "subscription_days" field.
 func (u *PaymentOrderUpsert) ClearSubscriptionDays() *PaymentOrderUpsert {
 	u.SetNull(paymentorder.FieldSubscriptionDays)
-	return u
-}
-
-// SetAPIKeyID sets the "api_key_id" field.
-func (u *PaymentOrderUpsert) SetAPIKeyID(v int64) *PaymentOrderUpsert {
-	u.Set(paymentorder.FieldAPIKeyID, v)
-	return u
-}
-
-// UpdateAPIKeyID sets the "api_key_id" field to the value that was provided on create.
-func (u *PaymentOrderUpsert) UpdateAPIKeyID() *PaymentOrderUpsert {
-	u.SetExcluded(paymentorder.FieldAPIKeyID)
-	return u
-}
-
-// AddAPIKeyID adds v to the "api_key_id" field.
-func (u *PaymentOrderUpsert) AddAPIKeyID(v int64) *PaymentOrderUpsert {
-	u.Add(paymentorder.FieldAPIKeyID, v)
-	return u
-}
-
-// ClearAPIKeyID clears the value of the "api_key_id" field.
-func (u *PaymentOrderUpsert) ClearAPIKeyID() *PaymentOrderUpsert {
-	u.SetNull(paymentorder.FieldAPIKeyID)
 	return u
 }
 
@@ -1753,6 +1754,27 @@ func (u *PaymentOrderUpsertOne) UpdateFeeRate() *PaymentOrderUpsertOne {
 	})
 }
 
+// SetBonusAmount sets the "bonus_amount" field.
+func (u *PaymentOrderUpsertOne) SetBonusAmount(v float64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetBonusAmount(v)
+	})
+}
+
+// AddBonusAmount adds v to the "bonus_amount" field.
+func (u *PaymentOrderUpsertOne) AddBonusAmount(v float64) *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddBonusAmount(v)
+	})
+}
+
+// UpdateBonusAmount sets the "bonus_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsertOne) UpdateBonusAmount() *PaymentOrderUpsertOne {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateBonusAmount()
+	})
+}
+
 // SetRechargeCode sets the "recharge_code" field.
 func (u *PaymentOrderUpsertOne) SetRechargeCode(v string) *PaymentOrderUpsertOne {
 	return u.Update(func(s *PaymentOrderUpsert) {
@@ -1967,34 +1989,6 @@ func (u *PaymentOrderUpsertOne) UpdateSubscriptionDays() *PaymentOrderUpsertOne 
 func (u *PaymentOrderUpsertOne) ClearSubscriptionDays() *PaymentOrderUpsertOne {
 	return u.Update(func(s *PaymentOrderUpsert) {
 		s.ClearSubscriptionDays()
-	})
-}
-
-// SetAPIKeyID sets the "api_key_id" field.
-func (u *PaymentOrderUpsertOne) SetAPIKeyID(v int64) *PaymentOrderUpsertOne {
-	return u.Update(func(s *PaymentOrderUpsert) {
-		s.SetAPIKeyID(v)
-	})
-}
-
-// AddAPIKeyID adds v to the "api_key_id" field.
-func (u *PaymentOrderUpsertOne) AddAPIKeyID(v int64) *PaymentOrderUpsertOne {
-	return u.Update(func(s *PaymentOrderUpsert) {
-		s.AddAPIKeyID(v)
-	})
-}
-
-// UpdateAPIKeyID sets the "api_key_id" field to the value that was provided on create.
-func (u *PaymentOrderUpsertOne) UpdateAPIKeyID() *PaymentOrderUpsertOne {
-	return u.Update(func(s *PaymentOrderUpsert) {
-		s.UpdateAPIKeyID()
-	})
-}
-
-// ClearAPIKeyID clears the value of the "api_key_id" field.
-func (u *PaymentOrderUpsertOne) ClearAPIKeyID() *PaymentOrderUpsertOne {
-	return u.Update(func(s *PaymentOrderUpsert) {
-		s.ClearAPIKeyID()
 	})
 }
 
@@ -2713,6 +2707,27 @@ func (u *PaymentOrderUpsertBulk) UpdateFeeRate() *PaymentOrderUpsertBulk {
 	})
 }
 
+// SetBonusAmount sets the "bonus_amount" field.
+func (u *PaymentOrderUpsertBulk) SetBonusAmount(v float64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.SetBonusAmount(v)
+	})
+}
+
+// AddBonusAmount adds v to the "bonus_amount" field.
+func (u *PaymentOrderUpsertBulk) AddBonusAmount(v float64) *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.AddBonusAmount(v)
+	})
+}
+
+// UpdateBonusAmount sets the "bonus_amount" field to the value that was provided on create.
+func (u *PaymentOrderUpsertBulk) UpdateBonusAmount() *PaymentOrderUpsertBulk {
+	return u.Update(func(s *PaymentOrderUpsert) {
+		s.UpdateBonusAmount()
+	})
+}
+
 // SetRechargeCode sets the "recharge_code" field.
 func (u *PaymentOrderUpsertBulk) SetRechargeCode(v string) *PaymentOrderUpsertBulk {
 	return u.Update(func(s *PaymentOrderUpsert) {
@@ -2927,34 +2942,6 @@ func (u *PaymentOrderUpsertBulk) UpdateSubscriptionDays() *PaymentOrderUpsertBul
 func (u *PaymentOrderUpsertBulk) ClearSubscriptionDays() *PaymentOrderUpsertBulk {
 	return u.Update(func(s *PaymentOrderUpsert) {
 		s.ClearSubscriptionDays()
-	})
-}
-
-// SetAPIKeyID sets the "api_key_id" field.
-func (u *PaymentOrderUpsertBulk) SetAPIKeyID(v int64) *PaymentOrderUpsertBulk {
-	return u.Update(func(s *PaymentOrderUpsert) {
-		s.SetAPIKeyID(v)
-	})
-}
-
-// AddAPIKeyID adds v to the "api_key_id" field.
-func (u *PaymentOrderUpsertBulk) AddAPIKeyID(v int64) *PaymentOrderUpsertBulk {
-	return u.Update(func(s *PaymentOrderUpsert) {
-		s.AddAPIKeyID(v)
-	})
-}
-
-// UpdateAPIKeyID sets the "api_key_id" field to the value that was provided on create.
-func (u *PaymentOrderUpsertBulk) UpdateAPIKeyID() *PaymentOrderUpsertBulk {
-	return u.Update(func(s *PaymentOrderUpsert) {
-		s.UpdateAPIKeyID()
-	})
-}
-
-// ClearAPIKeyID clears the value of the "api_key_id" field.
-func (u *PaymentOrderUpsertBulk) ClearAPIKeyID() *PaymentOrderUpsertBulk {
-	return u.Update(func(s *PaymentOrderUpsert) {
-		s.ClearAPIKeyID()
 	})
 }
 

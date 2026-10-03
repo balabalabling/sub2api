@@ -49,10 +49,6 @@
           <span class="text-gray-400 dark:text-dark-500">{{ t('payment.planCard.rate') }}</span>
           <span class="font-medium text-gray-700 dark:text-gray-300">{{ rateDisplay }}</span>
         </div>
-        <div class="flex items-center justify-between">
-          <span class="text-gray-400 dark:text-dark-500">{{ t('payment.planCard.keyQuota') }}</span>
-          <span class="font-medium text-gray-700 dark:text-gray-300">{{ keyQuotaDisplay }}</span>
-        </div>
         <div v-if="hasPeakRate" class="col-span-2 flex items-center justify-between gap-2">
           <span class="text-gray-400 dark:text-dark-500">{{ t('payment.planCard.peakRate') }}</span>
           <span class="text-right font-medium text-amber-700 dark:text-amber-300">{{ peakRateDisplay }}</span>
@@ -156,11 +152,6 @@ const discountText = computed(() => {
 const rateDisplay = computed(() => {
   const rate = props.plan.rate_multiplier ?? 1
   return `×${Number(rate.toPrecision(10))}`
-})
-
-const keyQuotaDisplay = computed(() => {
-  const quota = props.plan.key_quota_usd || 0
-  return quota > 0 ? `$${Number(quota.toFixed(2))}` : t('payment.planCard.unlimited')
 })
 
 const appStore = useAppStore()

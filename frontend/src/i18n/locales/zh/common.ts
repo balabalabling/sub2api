@@ -203,8 +203,6 @@ export default {
     myOrders: '我的订单',
     orderManagement: '订单管理',
     paymentDashboard: '支付概览',
-    storeManagement: '商城管理',
-    storeProducts: '商品管理',
     paymentConfig: '支付配置',
     paymentPlans: '订阅套餐',
     channelManagement: '渠道管理',

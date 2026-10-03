@@ -58,7 +58,7 @@ func openAIAccountPoolFor(account *Account) openAIAccountPool {
 	switch normalizeOpenAIPlanType(account.GetCredential("plan_type")) {
 	case "plus", "team":
 		return openAIAccountPoolPlus
-	case "pro", "chatgptpro", "prolite", "selfservebusinessprolite":
+	case "pro", "chatgptpro", "prolite", "promax", "selfservebusinessprolite":
 		return openAIAccountPoolPro
 	default:
 		return openAIAccountPoolCompat

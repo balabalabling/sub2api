@@ -149,6 +149,9 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 		BalanceRechargeMultiplier:     cfg.BalanceRechargeMultiplier,
 		SubscriptionUSDToCNYRate:      cfg.SubscriptionUSDToCNYRate,
 		RechargeFeeRate:               cfg.RechargeFeeRate,
+		RechargeBonusTiers:            cfg.RechargeBonusTiers,
+		RechargeBonusMode:             cfg.RechargeBonusMode,
+		RechargeBonusNotice:           cfg.RechargeBonusNotice,
 		HelpText:                      cfg.HelpText,
 		HelpImageURL:                  cfg.HelpImageURL,
 		StripePublishableKey:          cfg.StripePublishableKey,
@@ -166,6 +169,9 @@ type checkoutInfoResponse struct {
 	BalanceRechargeMultiplier     float64                         `json:"balance_recharge_multiplier"`
 	SubscriptionUSDToCNYRate      float64                         `json:"subscription_usd_to_cny_rate"`
 	RechargeFeeRate               float64                         `json:"recharge_fee_rate"`
+	RechargeBonusTiers            []service.RechargeBonusTier     `json:"recharge_bonus_tiers"`
+	RechargeBonusMode             string                          `json:"recharge_bonus_mode"`
+	RechargeBonusNotice           string                          `json:"recharge_bonus_notice"`
 	HelpText                      string                          `json:"help_text"`
 	HelpImageURL                  string                          `json:"help_image_url"`
 	StripePublishableKey          string                          `json:"stripe_publishable_key"`
@@ -236,7 +242,6 @@ type CreateOrderRequest struct {
 	PaymentSource     string  `json:"payment_source"`
 	OrderType         string  `json:"order_type"`
 	PlanID            int64   `json:"plan_id"`
-	APIKeyID          int64   `json:"api_key_id"`
 	// IsMobile lets the frontend declare its mobile status directly. When
 	// nil we fall back to User-Agent heuristics (which miss iPadOS / some
 	// embedded browsers that strip the "Mobile" keyword).
@@ -286,7 +291,6 @@ func (h *PaymentHandler) CreateOrder(c *gin.Context) {
 		PaymentSource:   req.PaymentSource,
 		OrderType:       req.OrderType,
 		PlanID:          req.PlanID,
-		APIKeyID:        req.APIKeyID,
 		Locale:          c.GetHeader("Accept-Language"),
 	})
 	if err != nil {
@@ -330,9 +334,6 @@ func applyWeChatPaymentResumeClaims(req *CreateOrderRequest, claims *service.WeC
 	}
 	if claims.PlanID > 0 {
 		req.PlanID = claims.PlanID
-	}
-	if claims.APIKeyID > 0 {
-		req.APIKeyID = claims.APIKeyID
 	}
 	return nil
 }
@@ -487,6 +488,7 @@ type PublicOrderResult struct {
 	Amount              float64    `json:"amount"`
 	PayAmount           float64    `json:"pay_amount"`
 	FeeRate             float64    `json:"fee_rate"`
+	BonusAmount         float64    `json:"bonus_amount"`
 	Currency            string     `json:"currency"`
 	PaymentType         string     `json:"payment_type"`
 	OrderType           string     `json:"order_type"`
@@ -501,7 +503,6 @@ type PublicOrderResult struct {
 	RefundRequestedBy   *string    `json:"refund_requested_by,omitempty"`
 	RefundRequestReason *string    `json:"refund_request_reason,omitempty"`
 	PlanID              *int64     `json:"plan_id,omitempty"`
-	APIKeyID            *int64     `json:"api_key_id,omitempty"`
 }
 
 // PublicOrderVerifyResult is returned by the legacy anonymous out_trade_no
@@ -523,6 +524,7 @@ func buildPublicOrderResult(order *dbent.PaymentOrder) PublicOrderResult {
 		Amount:              order.Amount,
 		PayAmount:           order.PayAmount,
 		FeeRate:             order.FeeRate,
+		BonusAmount:         order.BonusAmount,
 		Currency:            service.PaymentOrderCurrency(order),
 		PaymentType:         order.PaymentType,
 		OrderType:           order.OrderType,
@@ -537,7 +539,6 @@ func buildPublicOrderResult(order *dbent.PaymentOrder) PublicOrderResult {
 		RefundRequestedBy:   order.RefundRequestedBy,
 		RefundRequestReason: order.RefundRequestReason,
 		PlanID:              order.PlanID,
-		APIKeyID:            order.APIKeyID,
 	}
 }
 
@@ -632,6 +633,7 @@ type PaymentOrderResult struct {
 	Amount              float64    `json:"amount"`
 	PayAmount           float64    `json:"pay_amount"`
 	FeeRate             float64    `json:"fee_rate"`
+	BonusAmount         float64    `json:"bonus_amount"`
 	Currency            string     `json:"currency"`
 	PaymentType         string     `json:"payment_type"`
 	OutTradeNo          string     `json:"out_trade_no"`
@@ -647,7 +649,6 @@ type PaymentOrderResult struct {
 	RefundRequestedBy   *string    `json:"refund_requested_by,omitempty"`
 	RefundRequestReason *string    `json:"refund_request_reason,omitempty"`
 	PlanID              *int64     `json:"plan_id,omitempty"`
-	APIKeyID            *int64     `json:"api_key_id,omitempty"`
 	ProviderInstanceID  *string    `json:"provider_instance_id,omitempty"`
 }
 
@@ -671,6 +672,7 @@ func sanitizePaymentOrderForResponse(order *dbent.PaymentOrder) *PaymentOrderRes
 		Amount:              order.Amount,
 		PayAmount:           order.PayAmount,
 		FeeRate:             order.FeeRate,
+		BonusAmount:         order.BonusAmount,
 		Currency:            service.PaymentOrderCurrency(order),
 		PaymentType:         order.PaymentType,
 		OutTradeNo:          order.OutTradeNo,
@@ -686,7 +688,6 @@ func sanitizePaymentOrderForResponse(order *dbent.PaymentOrder) *PaymentOrderRes
 		RefundRequestedBy:   order.RefundRequestedBy,
 		RefundRequestReason: order.RefundRequestReason,
 		PlanID:              order.PlanID,
-		APIKeyID:            order.APIKeyID,
 		ProviderInstanceID:  order.ProviderInstanceID,
 	}
 }

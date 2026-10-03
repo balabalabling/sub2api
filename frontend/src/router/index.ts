@@ -167,24 +167,6 @@ const routes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/storefront',
-    name: 'Storefront',
-    component: () => import('@/views/public/StorefrontView.vue'),
-    meta: {
-      requiresAuth: false,
-      title: 'API Key Store'
-    }
-  },
-  {
-    path: '/storefront/query',
-    name: 'StorefrontQuery',
-    component: () => import('@/views/public/StorefrontQueryView.vue'),
-    meta: {
-      requiresAuth: false,
-      title: 'Store Query'
-    }
-  },
-  {
     path: '/legal/:documentId',
     name: 'LegalDocument',
     component: () => import('@/views/public/LegalDocumentView.vue'),
@@ -730,17 +712,6 @@ const routes: RouteRecordRaw[] = [
       title: 'Subscription Plans',
       titleKey: 'nav.paymentPlans',
       requiresPayment: true
-    }
-  },
-  {
-    path: '/admin/store/products',
-    name: 'AdminStoreProducts',
-    component: () => import('@/views/admin/store/AdminStoreProductsView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: true,
-      title: 'Store Products',
-      titleKey: 'nav.storeProducts'
     }
   },
 

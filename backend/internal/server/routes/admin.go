@@ -128,24 +128,8 @@ func RegisterAdminRoutes(
 		// 邀请返利（专属用户管理）
 		registerAffiliateRoutes(admin, h)
 
-		// 商城商品管理
-		registerStoreRoutes(admin, h)
-
 		// 操作审计日志
 		registerAuditLogRoutes(admin, h, stepUpAuth)
-	}
-}
-
-func registerStoreRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
-	store := admin.Group("/store")
-	{
-		products := store.Group("/products")
-		{
-			products.GET("", h.Admin.Store.ListProducts)
-			products.POST("", h.Admin.Store.CreateProduct)
-			products.PUT("/:id", h.Admin.Store.UpdateProduct)
-			products.DELETE("/:id", h.Admin.Store.DeleteProduct)
-		}
 	}
 }
 
@@ -383,6 +367,9 @@ func registerAccountRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAu
 		accounts.GET("/opencode-go-usage/settings", h.Admin.Account.GetOpenCodeGoUsageSettings)
 		accounts.PUT("/opencode-go-usage/settings", h.Admin.Account.UpdateOpenCodeGoUsageSettings)
 		accounts.GET("/:id", h.Admin.Account.GetByID)
+		accounts.GET("/:id/claude/reset-credits", h.Admin.Account.ClaudeResetCredits)
+		// Same protection as the Codex reset-quota route (admin auth, audit, compliance guard).
+		accounts.POST("/:id/claude/reset-credits/redeem", h.Admin.Account.RedeemClaudeResetCredit)
 		accounts.POST("", h.Admin.Account.Create)
 		accounts.POST("/:id/duplicate", h.Admin.Account.Duplicate)
 		accounts.POST("/check-mixed-channel", h.Admin.Account.CheckMixedChannel)

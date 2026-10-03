@@ -33,9 +33,6 @@ const (
 	NotificationEmailEventCyberPolicyNotice           = "content_moderation.cyber_policy_notice"
 	NotificationEmailEventOpsAlert                    = "ops.alert"
 	NotificationEmailEventOpsScheduledReport          = "ops.scheduled_report"
-	NotificationEmailEventStoreQueryCode              = "store.query_code"
-	NotificationEmailEventStoreAPIKeyDelivered        = "store.api_key_delivered"
-	NotificationEmailEventStoreManualRequired         = "store.manual_required"
 
 	notificationEmailTemplateKeyPrefix    = "notification_email_template:"
 	notificationEmailPreferenceKeyPrefix  = "notification_email_preference:"
@@ -910,11 +907,6 @@ func notificationEmailSampleVariables(locale string) map[string]string {
 			"subscription_group":  "Claude Pro",
 			"subscription_days":   "30",
 			"expiry_time":         "2026-06-18 12:00",
-			"order_no":            "BO202606180001",
-			"product_name":        "Codex 周卡",
-			"api_key":             "sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-			"query_email":         "user@example.com",
-			"query_note":          "请使用接收邮箱在订单查询中心获取验证码后查询订单、API Key 和用量。",
 			"days_remaining":      "3",
 			"current_balance":     "12.34",
 			"threshold":           "20.00",
@@ -963,11 +955,6 @@ func notificationEmailSampleVariables(locale string) map[string]string {
 		"subscription_group":  "Claude Pro",
 		"subscription_days":   "30",
 		"expiry_time":         "2026-06-18 12:00",
-		"order_no":            "BO202606180001",
-		"product_name":        "Codex Weekly",
-		"api_key":             "sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
-		"query_email":         "user@example.com",
-		"query_note":          "Use the recipient email in the order query center to view the order, API Key, and usage.",
 		"days_remaining":      "3",
 		"current_balance":     "12.34",
 		"threshold":           "20.00",
@@ -1047,9 +1034,6 @@ var notificationEmailEventOrder = []string{
 	NotificationEmailEventCyberPolicyNotice,
 	NotificationEmailEventOpsAlert,
 	NotificationEmailEventOpsScheduledReport,
-	NotificationEmailEventStoreQueryCode,
-	NotificationEmailEventStoreAPIKeyDelivered,
-	NotificationEmailEventStoreManualRequired,
 }
 
 var notificationEmailEventDefinitions = map[string]NotificationEmailEventInfo{
@@ -1083,7 +1067,7 @@ var notificationEmailEventDefinitions = map[string]NotificationEmailEventInfo{
 		Description:  "Sent after a subscription purchase is fulfilled.",
 		Category:     "subscription",
 		Optional:     false,
-		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...), "subscription_group", "subscription_days", "expiry_time", "order_id", "order_no", "product_name", "api_key", "query_email", "query_note"),
+		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...), "subscription_group", "subscription_days", "expiry_time", "order_id"),
 	},
 	NotificationEmailEventSubscriptionExpiryReminder: {
 		Event:        NotificationEmailEventSubscriptionExpiryReminder,
@@ -1108,30 +1092,6 @@ var notificationEmailEventDefinitions = map[string]NotificationEmailEventInfo{
 		Category:     "billing",
 		Optional:     false,
 		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...), "recharge_amount", "current_balance", "order_id"),
-	},
-	NotificationEmailEventStoreQueryCode: {
-		Event:        NotificationEmailEventStoreQueryCode,
-		Label:        "Store query verification code",
-		Description:  "Sent when a storefront customer verifies email ownership before viewing orders.",
-		Category:     "store",
-		Optional:     false,
-		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...), "verification_code", "expires_in_minutes"),
-	},
-	NotificationEmailEventStoreAPIKeyDelivered: {
-		Event:        NotificationEmailEventStoreAPIKeyDelivered,
-		Label:        "Store API key delivered",
-		Description:  "Sent after a storefront API key order is fulfilled.",
-		Category:     "store",
-		Optional:     false,
-		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...), "order_no", "product_name", "api_key", "expires_at"),
-	},
-	NotificationEmailEventStoreManualRequired: {
-		Event:        NotificationEmailEventStoreManualRequired,
-		Label:        "Store manual fulfillment notice",
-		Description:  "Sent after a storefront order is paid and awaits manual fulfillment.",
-		Category:     "store",
-		Optional:     false,
-		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...), "order_no", "product_name"),
 	},
 	NotificationEmailEventAccountQuotaAlert: {
 		Event:       NotificationEmailEventAccountQuotaAlert,
@@ -1260,33 +1220,20 @@ var notificationEmailOfficialTemplates = map[string]map[string]notificationEmail
 	},
 	NotificationEmailEventSubscriptionPurchaseSuccess: {
 		notificationEmailDefaultLocale: {
-			Subject: "{{product_name}} Key delivery notice",
-			HTML: notificationEmailCard("#16a34a", "Key delivery notice", `
+			Subject: "[{{site_name}}] Subscription purchase successful",
+			HTML: notificationEmailCard("#2563eb", "Subscription activated", `
 <p>Hello {{recipient_name}},</p>
-<p>Your newly purchased Key has been delivered.</p>
-<table style="width:100%;border-collapse:collapse;line-height:1.8;">
-  <tr><td style="width:96px;color:#6b7280;">Product</td><td><strong>{{product_name}}</strong></td></tr>
-  <tr><td style="color:#6b7280;">Order No.</td><td>{{order_no}}</td></tr>
-  <tr><td style="color:#6b7280;">Validity</td><td>{{subscription_days}} days, expires at {{expiry_time}}</td></tr>
-  <tr><td style="color:#6b7280;">API Key</td><td style="word-break:break-all;font-family:monospace;">{{api_key}}</td></tr>
-  <tr><td style="color:#6b7280;">Query Email</td><td>{{query_email}}</td></tr>
-</table>
-<p class="muted">{{query_note}}</p>
-<p>Please keep this email safe.</p>`),
+<p>Your subscription for <strong>{{subscription_group}}</strong> has been activated for <strong>{{subscription_days}}</strong> days.</p>
+<p>Expiry time: <strong>{{expiry_time}}</strong></p>
+<p>Order ID: {{order_id}}</p>`),
 		},
 		notificationEmailLocaleChinese: {
-			Subject: "{{product_name}} Key 发货通知",
-			HTML: notificationEmailCard("#16a34a", "Key 发货通知", `
-<p>您好，您的新购 Key 已发货。</p>
-<table style="width:100%;border-collapse:collapse;line-height:1.9;">
-  <tr><td style="width:96px;color:#6b7280;">商品名称</td><td><strong>{{product_name}}</strong></td></tr>
-  <tr><td style="color:#6b7280;">订单号</td><td>{{order_no}}</td></tr>
-  <tr><td style="color:#6b7280;">有效期</td><td>{{subscription_days}} 天，到期时间 {{expiry_time}}</td></tr>
-  <tr><td style="color:#6b7280;">API Key</td><td style="word-break:break-all;font-family:monospace;">{{api_key}}</td></tr>
-  <tr><td style="color:#6b7280;">查询邮箱</td><td>{{query_email}}</td></tr>
-</table>
-<p class="muted">{{query_note}}</p>
-<p>请妥善保管本邮件中的信息。</p>`),
+			Subject: "[{{site_name}}] 订阅购买成功",
+			HTML: notificationEmailCard("#2563eb", "订阅已开通", `
+<p>{{recipient_name}}，您好：</p>
+<p>您的 <strong>{{subscription_group}}</strong> 订阅已成功开通，有效期 <strong>{{subscription_days}}</strong> 天。</p>
+<p>到期时间：<strong>{{expiry_time}}</strong></p>
+<p>订单号：{{order_id}}</p>`),
 		},
 	},
 	NotificationEmailEventSubscriptionExpiryReminder: {
@@ -1343,64 +1290,6 @@ var notificationEmailOfficialTemplates = map[string]map[string]notificationEmail
 <p>您的余额充值 <strong>${{recharge_amount}}</strong> 已完成。</p>
 <p>当前余额：<strong>${{current_balance}}</strong></p>
 			<p>订单号：{{order_id}}</p>`),
-		},
-	},
-	NotificationEmailEventStoreQueryCode: {
-		notificationEmailDefaultLocale: {
-			Subject: "[{{site_name}}] Store query verification code",
-			HTML: notificationEmailCard("#0f766e", "Verification code", `
-<p>Hello {{recipient_name}},</p>
-<p>Your storefront query verification code is:</p>
-<p style="font-size:24px;font-weight:700;letter-spacing:4px;">{{verification_code}}</p>
-<p>This code expires in {{expires_in_minutes}} minutes.</p>`),
-		},
-		notificationEmailLocaleChinese: {
-			Subject: "[{{site_name}}] 商城查询验证码",
-			HTML: notificationEmailCard("#0f766e", "商城查询验证码", `
-<p>{{recipient_name}}，您好：</p>
-<p>您的商城订单查询验证码是：</p>
-<p style="font-size:24px;font-weight:700;letter-spacing:4px;">{{verification_code}}</p>
-<p>验证码将在 {{expires_in_minutes}} 分钟后过期。</p>`),
-		},
-	},
-	NotificationEmailEventStoreAPIKeyDelivered: {
-		notificationEmailDefaultLocale: {
-			Subject: "[{{site_name}}] Your API Key is ready",
-			HTML: notificationEmailCard("#16a34a", "API Key delivered", `
-<p>Hello {{recipient_name}},</p>
-<p>Your order <strong>{{order_no}}</strong> has been fulfilled.</p>
-<p>Product: <strong>{{product_name}}</strong></p>
-<p>API Key:</p>
-<p style="word-break:break-all;font-family:monospace;background:#f3f4f6;padding:12px;border-radius:6px;">{{api_key}}</p>
-<p>Expires at: <strong>{{expires_at}}</strong></p>`),
-		},
-		notificationEmailLocaleChinese: {
-			Subject: "[{{site_name}}] 您的 API Key 已开通",
-			HTML: notificationEmailCard("#16a34a", "API Key 已开通", `
-<p>{{recipient_name}}，您好：</p>
-<p>您的订单 <strong>{{order_no}}</strong> 已完成发货。</p>
-<p>商品：<strong>{{product_name}}</strong></p>
-<p>API Key：</p>
-<p style="word-break:break-all;font-family:monospace;background:#f3f4f6;padding:12px;border-radius:6px;">{{api_key}}</p>
-<p>有效期至：<strong>{{expires_at}}</strong></p>`),
-		},
-	},
-	NotificationEmailEventStoreManualRequired: {
-		notificationEmailDefaultLocale: {
-			Subject: "[{{site_name}}] Order paid, waiting for fulfillment",
-			HTML: notificationEmailCard("#2563eb", "Order paid", `
-<p>Hello {{recipient_name}},</p>
-<p>Your order <strong>{{order_no}}</strong> has been paid successfully.</p>
-<p>Product: <strong>{{product_name}}</strong></p>
-<p>The order is waiting for manual fulfillment. You will receive another email when it is ready.</p>`),
-		},
-		notificationEmailLocaleChinese: {
-			Subject: "[{{site_name}}] 订单已支付，等待发货",
-			HTML: notificationEmailCard("#2563eb", "订单已支付", `
-<p>{{recipient_name}}，您好：</p>
-<p>您的订单 <strong>{{order_no}}</strong> 已支付成功。</p>
-<p>商品：<strong>{{product_name}}</strong></p>
-<p>该订单正在等待人工发货，完成后会再次邮件通知您。</p>`),
 		},
 	},
 	NotificationEmailEventAccountQuotaAlert: {

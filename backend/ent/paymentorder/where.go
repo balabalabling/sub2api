@@ -90,6 +90,11 @@ func FeeRate(v float64) predicate.PaymentOrder {
 	return predicate.PaymentOrder(sql.FieldEQ(FieldFeeRate, v))
 }
 
+// BonusAmount applies equality check predicate on the "bonus_amount" field. It's identical to BonusAmountEQ.
+func BonusAmount(v float64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldEQ(FieldBonusAmount, v))
+}
+
 // RechargeCode applies equality check predicate on the "recharge_code" field. It's identical to RechargeCodeEQ.
 func RechargeCode(v string) predicate.PaymentOrder {
 	return predicate.PaymentOrder(sql.FieldEQ(FieldRechargeCode, v))
@@ -143,11 +148,6 @@ func SubscriptionGroupID(v int64) predicate.PaymentOrder {
 // SubscriptionDays applies equality check predicate on the "subscription_days" field. It's identical to SubscriptionDaysEQ.
 func SubscriptionDays(v int) predicate.PaymentOrder {
 	return predicate.PaymentOrder(sql.FieldEQ(FieldSubscriptionDays, v))
-}
-
-// APIKeyID applies equality check predicate on the "api_key_id" field. It's identical to APIKeyIDEQ.
-func APIKeyID(v int64) predicate.PaymentOrder {
-	return predicate.PaymentOrder(sql.FieldEQ(FieldAPIKeyID, v))
 }
 
 // ProviderInstanceID applies equality check predicate on the "provider_instance_id" field. It's identical to ProviderInstanceIDEQ.
@@ -593,6 +593,46 @@ func FeeRateLT(v float64) predicate.PaymentOrder {
 // FeeRateLTE applies the LTE predicate on the "fee_rate" field.
 func FeeRateLTE(v float64) predicate.PaymentOrder {
 	return predicate.PaymentOrder(sql.FieldLTE(FieldFeeRate, v))
+}
+
+// BonusAmountEQ applies the EQ predicate on the "bonus_amount" field.
+func BonusAmountEQ(v float64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldEQ(FieldBonusAmount, v))
+}
+
+// BonusAmountNEQ applies the NEQ predicate on the "bonus_amount" field.
+func BonusAmountNEQ(v float64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldNEQ(FieldBonusAmount, v))
+}
+
+// BonusAmountIn applies the In predicate on the "bonus_amount" field.
+func BonusAmountIn(vs ...float64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldIn(FieldBonusAmount, vs...))
+}
+
+// BonusAmountNotIn applies the NotIn predicate on the "bonus_amount" field.
+func BonusAmountNotIn(vs ...float64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldNotIn(FieldBonusAmount, vs...))
+}
+
+// BonusAmountGT applies the GT predicate on the "bonus_amount" field.
+func BonusAmountGT(v float64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldGT(FieldBonusAmount, v))
+}
+
+// BonusAmountGTE applies the GTE predicate on the "bonus_amount" field.
+func BonusAmountGTE(v float64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldGTE(FieldBonusAmount, v))
+}
+
+// BonusAmountLT applies the LT predicate on the "bonus_amount" field.
+func BonusAmountLT(v float64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldLT(FieldBonusAmount, v))
+}
+
+// BonusAmountLTE applies the LTE predicate on the "bonus_amount" field.
+func BonusAmountLTE(v float64) predicate.PaymentOrder {
+	return predicate.PaymentOrder(sql.FieldLTE(FieldBonusAmount, v))
 }
 
 // RechargeCodeEQ applies the EQ predicate on the "recharge_code" field.
@@ -1293,56 +1333,6 @@ func SubscriptionDaysIsNil() predicate.PaymentOrder {
 // SubscriptionDaysNotNil applies the NotNil predicate on the "subscription_days" field.
 func SubscriptionDaysNotNil() predicate.PaymentOrder {
 	return predicate.PaymentOrder(sql.FieldNotNull(FieldSubscriptionDays))
-}
-
-// APIKeyIDEQ applies the EQ predicate on the "api_key_id" field.
-func APIKeyIDEQ(v int64) predicate.PaymentOrder {
-	return predicate.PaymentOrder(sql.FieldEQ(FieldAPIKeyID, v))
-}
-
-// APIKeyIDNEQ applies the NEQ predicate on the "api_key_id" field.
-func APIKeyIDNEQ(v int64) predicate.PaymentOrder {
-	return predicate.PaymentOrder(sql.FieldNEQ(FieldAPIKeyID, v))
-}
-
-// APIKeyIDIn applies the In predicate on the "api_key_id" field.
-func APIKeyIDIn(vs ...int64) predicate.PaymentOrder {
-	return predicate.PaymentOrder(sql.FieldIn(FieldAPIKeyID, vs...))
-}
-
-// APIKeyIDNotIn applies the NotIn predicate on the "api_key_id" field.
-func APIKeyIDNotIn(vs ...int64) predicate.PaymentOrder {
-	return predicate.PaymentOrder(sql.FieldNotIn(FieldAPIKeyID, vs...))
-}
-
-// APIKeyIDGT applies the GT predicate on the "api_key_id" field.
-func APIKeyIDGT(v int64) predicate.PaymentOrder {
-	return predicate.PaymentOrder(sql.FieldGT(FieldAPIKeyID, v))
-}
-
-// APIKeyIDGTE applies the GTE predicate on the "api_key_id" field.
-func APIKeyIDGTE(v int64) predicate.PaymentOrder {
-	return predicate.PaymentOrder(sql.FieldGTE(FieldAPIKeyID, v))
-}
-
-// APIKeyIDLT applies the LT predicate on the "api_key_id" field.
-func APIKeyIDLT(v int64) predicate.PaymentOrder {
-	return predicate.PaymentOrder(sql.FieldLT(FieldAPIKeyID, v))
-}
-
-// APIKeyIDLTE applies the LTE predicate on the "api_key_id" field.
-func APIKeyIDLTE(v int64) predicate.PaymentOrder {
-	return predicate.PaymentOrder(sql.FieldLTE(FieldAPIKeyID, v))
-}
-
-// APIKeyIDIsNil applies the IsNil predicate on the "api_key_id" field.
-func APIKeyIDIsNil() predicate.PaymentOrder {
-	return predicate.PaymentOrder(sql.FieldIsNull(FieldAPIKeyID))
-}
-
-// APIKeyIDNotNil applies the NotNil predicate on the "api_key_id" field.
-func APIKeyIDNotNil() predicate.PaymentOrder {
-	return predicate.PaymentOrder(sql.FieldNotNull(FieldAPIKeyID))
 }
 
 // ProviderInstanceIDEQ applies the EQ predicate on the "provider_instance_id" field.

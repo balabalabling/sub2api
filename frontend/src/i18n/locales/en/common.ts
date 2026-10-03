@@ -203,8 +203,6 @@ export default {
     myOrders: 'My Orders',
     orderManagement: 'Orders',
     paymentDashboard: 'Payment Dashboard',
-    storeManagement: 'Store',
-    storeProducts: 'Products',
     paymentConfig: 'Payment Config',
     paymentPlans: 'Plans',
     channelManagement: 'Channels',
