@@ -22,7 +22,7 @@ import (
 // restart, using the same authenticated user/API key that will continue the turn.
 const openAIImageReplayContextKey = "openai_image_replay_enabled"
 
-var errOpenAIImageReplayUnavailable = errors.New("Generated image data is unavailable in the short-lived gateway cache. Reattach the complete image data or restart before the image-generation step.")
+var errOpenAIImageReplayUnavailable = errors.New("generated image data is unavailable in the short-lived gateway cache. Reattach the complete image data or restart before the image-generation step")
 
 type openAIImageReplayScope struct{ userID, apiKeyID int64 }
 type openAIImageReplayKey struct {
@@ -51,8 +51,18 @@ type openAIImageReplayCache struct {
 func newOpenAIImageReplayCache(ttl time.Duration, maxBytes, maxScopeBytes, maxItemBytes, maxEntries int) *openAIImageReplayCache {
 	return &openAIImageReplayCache{entries: make(map[openAIImageReplayKey]*list.Element), lru: list.New(), scopeBytes: make(map[openAIImageReplayScope]int), ttl: ttl, maxBytes: maxBytes, maxScopeBytes: maxScopeBytes, maxItemBytes: maxItemBytes, maxEntries: maxEntries, now: time.Now}
 }
+
+// The private list only contains entries inserted by put. Check that invariant
+// explicitly rather than relying on unchecked container/list type assertions.
+func openAIImageReplayEntryFromElement(elem *list.Element) *openAIImageReplayEntry {
+	entry, ok := elem.Value.(*openAIImageReplayEntry)
+	if !ok || entry == nil {
+		panic("invalid image replay cache entry")
+	}
+	return entry
+}
 func (cache *openAIImageReplayCache) removeLocked(elem *list.Element) {
-	entry := elem.Value.(*openAIImageReplayEntry)
+	entry := openAIImageReplayEntryFromElement(elem)
 	if entry.timer != nil {
 		entry.timer.Stop()
 	}
@@ -69,7 +79,7 @@ func (cache *openAIImageReplayCache) removeLocked(elem *list.Element) {
 func (cache *openAIImageReplayCache) pruneLocked(now time.Time) {
 	for elem := cache.lru.Back(); elem != nil; {
 		prev := elem.Prev()
-		if !now.Before(elem.Value.(*openAIImageReplayEntry).expiresAt) {
+		if !now.Before(openAIImageReplayEntryFromElement(elem).expiresAt) {
 			cache.removeLocked(elem)
 		}
 		elem = prev
@@ -90,7 +100,7 @@ func (cache *openAIImageReplayCache) put(scope openAIImageReplayScope, id string
 	// A noisy principal first evicts its own LRU items, not another user's.
 	for cache.scopeBytes[scope]+len(raw) > cache.maxScopeBytes {
 		for elem := cache.lru.Back(); elem != nil; elem = elem.Prev() {
-			if elem.Value.(*openAIImageReplayEntry).key.scope == scope {
+			if openAIImageReplayEntryFromElement(elem).key.scope == scope {
 				cache.removeLocked(elem)
 				break
 			}
@@ -111,7 +121,7 @@ func (cache *openAIImageReplayCache) put(scope openAIImageReplayScope, id string
 	entry.timer = time.AfterFunc(cache.ttl, func() {
 		cache.mu.Lock()
 		defer cache.mu.Unlock()
-		if elem := cache.entries[key]; elem != nil && elem.Value.(*openAIImageReplayEntry).generation == generation {
+		if elem := cache.entries[key]; elem != nil && openAIImageReplayEntryFromElement(elem).generation == generation {
 			cache.removeLocked(elem)
 		}
 	})
@@ -128,7 +138,7 @@ func (cache *openAIImageReplayCache) get(scope openAIImageReplayScope, id string
 	if elem == nil {
 		return nil, false
 	}
-	entry := elem.Value.(*openAIImageReplayEntry)
+	entry := openAIImageReplayEntryFromElement(elem)
 	if !cache.now().Before(entry.expiresAt) {
 		cache.removeLocked(elem)
 		return nil, false

@@ -191,7 +191,7 @@ func TestOpenAIImageReplayWebSocketTwoTurns(t *testing.T) {
 					errCh <- err
 					return
 				}
-				defer conn.CloseNow()
+				defer func() { _ = conn.CloseNow() }()
 				_, first, err := conn.Read(r.Context())
 				if err != nil {
 					errCh <- err
@@ -206,7 +206,7 @@ func TestOpenAIImageReplayWebSocketTwoTurns(t *testing.T) {
 			defer cancel()
 			client, _, err := coderws.Dial(ctx, "ws"+strings.TrimPrefix(server.URL, "http"), nil)
 			require.NoError(t, err)
-			defer client.CloseNow()
+			defer func() { _ = client.CloseNow() }()
 			first := `{"type":"response.create","model":"gpt-5.1","store":false,"input":[{"role":"user","content":"draw"}]}`
 			require.NoError(t, client.Write(ctx, coderws.MessageText, []byte(first)))
 			for {
