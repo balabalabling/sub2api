@@ -614,6 +614,7 @@ readLoop:
 			continue
 		}
 		responseModelObserver.ObserveOpenAI(message, eventType)
+		s.rememberOpenAIImageReplay(c, account, message, eventType)
 		eventCount++
 		if firstEventType == "" {
 			firstEventType = eventType

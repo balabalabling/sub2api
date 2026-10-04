@@ -29,6 +29,7 @@ type openAIWSClientFrameConn struct {
 	// model identifier they supplied for the current turn.
 	restoreResponseModel func([]byte) []byte
 	restoreToolNames     func([]byte) []byte
+	observeImageReplay   func([]byte)
 }
 
 // openAIWSPolicyEnforcingFrameConn wraps a client-side FrameConn and runs
@@ -641,6 +642,9 @@ func (c *openAIWSClientFrameConn) WriteFrame(ctx context.Context, msgType coderw
 		ctx = context.Background()
 	}
 	if msgType == coderws.MessageText {
+		if c.observeImageReplay != nil {
+			c.observeImageReplay(payload)
+		}
 		if normalized, changed := normalizeCompletedImageGenerationStatus(payload); changed {
 			payload = normalized
 		}
@@ -694,6 +698,11 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, liteErr.Error(), liteErr)
 		}
 		firstClientMessage = liteFirstMessage
+	}
+	if replayBody, _, replayErr := s.prepareOpenAIImageReplay(c, account, firstClientMessage); replayErr != nil {
+		return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, replayErr.Error(), replayErr)
+	} else {
+		firstClientMessage = replayBody
 	}
 	originalFirstClientMessage := firstClientMessage
 	if next, policyErr := applyOpenAIWSReasoningEffortPolicy(firstClientMessage, hooks); policyErr != nil {
@@ -966,6 +975,9 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			requestModel, upstreamModel := usageMeta.turnModels("")
 			return replaceOpenAIWSMessageModel(payload, upstreamModel, requestModel)
 		},
+		observeImageReplay: func(payload []byte) {
+			s.rememberOpenAIImageReplay(c, account, payload, "")
+		},
 		restoreToolNames: func(payload []byte) []byte {
 			return restoreCodexToolNamesFromContext(c, payload)
 		},
@@ -998,6 +1010,11 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 			}
 			responsesLite := isResponseCreate && isOpenAIResponsesLiteWebSocketPayload(payload)
 			if isResponseCreate {
+				if replayBody, _, replayErr := s.prepareOpenAIImageReplay(c, account, payload); replayErr != nil {
+					return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, replayErr.Error(), replayErr)
+				} else {
+					payload = replayBody
+				}
 				if normalized, compatibilityChanged, normalizeErr := normalizeOpenAIResponsesWebSocketCompatibilityBody(payload, account, responsesLite); normalizeErr != nil {
 					return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", normalizeErr)
 				} else if compatibilityChanged {

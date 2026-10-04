@@ -268,6 +268,11 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		} else {
 			normalized = next
 		}
+		if replayBody, _, replayErr := s.prepareOpenAIImageReplay(c, account, normalized); replayErr != nil {
+			return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, replayErr.Error(), replayErr)
+		} else {
+			normalized = replayBody
+		}
 		responsesLite := isOpenAIResponsesLiteWebSocketPayload(normalized)
 		if compatibilityBody, compatibilityChanged, compatibilityErr := normalizeOpenAIResponsesWebSocketCompatibilityBody(normalized, account, responsesLite); compatibilityErr != nil {
 			return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", compatibilityErr)
@@ -1026,6 +1031,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 
 			eventType, eventResponseID, _ := parseOpenAIWSEventEnvelope(upstreamMessage)
 			responseModelObserver.ObserveOpenAI(upstreamMessage, eventType)
+			s.rememberOpenAIImageReplay(c, account, upstreamMessage, eventType)
 			if responseID == "" && eventResponseID != "" {
 				responseID = eventResponseID
 			}

@@ -2696,6 +2696,10 @@ func (s *OpenAIGatewayService) isOpenAIAccountTransportCompatible(account *Accou
 }
 
 func (s *OpenAIGatewayService) ReportOpenAIAccountScheduleResult(account *Account, model string, success bool, firstTokenMs *int, observedErr ...error) bool {
+	// A missing local image is a client-context failure, not upstream health.
+	if !success && len(observedErr) > 0 && errors.Is(observedErr[0], errOpenAIImageReplayUnavailable) {
+		return false
+	}
 	if account == nil {
 		return false
 	}
