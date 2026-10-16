@@ -197,6 +197,7 @@
 - 远程门禁未能启动/回读：`gh pr checks 1` 返回 **no checks reported**；对 `balabalbling/sub2api` 的 Actions/commits REST 查询均返回 HTTP 404，无法取得 CI、Security Scan 或 Docker run URL，也未将未验证提交推进 `main`。
 - 只读 VPS 回读：`sub2api`、PostgreSQL、Redis 均 healthy；`http://127.0.0.1:8080/health`=`{"status":"ok"}`；当前生产容器镜像 ID 为 `sha256:e1095d3a2479eabc8eea7029758e621e7208bf1c0c5777e97ee3ee0a299f9f2a`；近期 `/v1/responses` 安全审计日志持续 allow，未见 panic/fatal/迁移回滚信号。
 - 处理结果：未执行 `git push main`、`docker compose pull`、`docker compose up -d` 或任何 VPS 变更；当前生产保持 v0.2.15 发布后的镜像，等待 GitHub Actions 可回读后继续门禁。
+
 ### 2026-10-17：v0.2.17 远程 Actions 续查（未发布）
 
 - 远程分支重试提交：`317319f97c78cd890cfbafac57e1fca03dd5fa13`（空提交，仅用于重新触发升级分支门禁）；本地合并提交仍为 `2d0f0ac9c70516eabae19c505862d6458cf2f6b0`，`origin/main` 仍为 `aee70827e38c782309d26ddad7577e17e1a6b9cf`。
