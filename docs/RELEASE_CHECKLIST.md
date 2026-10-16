@@ -191,3 +191,9 @@
 - 本地前端门禁：pnpm 9.15.9 安装通过；lint、typecheck、全量 Vitest **373 文件 / 2871 测试通过**；生产构建通过；生产审计 **high=0、critical=0、moderate=13、low=4**，审计例外校验通过。
 - 本机未安装 Go、govulncheck、Docker；后端编译、govulncheck、完整 CI、Security Scan、Docker workflow 交由 GitHub Actions 验证。当前尚未提交、推送、更新 main 或发布 VPS。
 - CI/Security/Docker run URL、最终 commit、镜像摘要、VPS 健康结果：待远程门禁完成后回填。新发现问题：当前未发现阻断性行为冲突；生产现有 `trusted_proxies` / CORS 等启动提醒仍需按既有配置人工评估。
+### 2026-10-17：官方 v0.2.17 远程门禁阻塞（未发布）
+
+- 本地合并提交：`2d0f0ac9c70516eabae19c505862d6458cf2f6b0`，分支 `codex/upgrade-v0.2.17` 已推送；PR：<https://github.com/balabalbling/sub2api/pull/1>。
+- 远程门禁未能启动/回读：`gh pr checks 1` 返回 **no checks reported**；对 `balabalbling/sub2api` 的 Actions/commits REST 查询均返回 HTTP 404，无法取得 CI、Security Scan 或 Docker run URL，也未将未验证提交推进 `main`。
+- 只读 VPS 回读：`sub2api`、PostgreSQL、Redis 均 healthy；`http://127.0.0.1:8080/health`=`{"status":"ok"}`；当前生产容器镜像 ID 为 `sha256:e1095d3a2479eabc8eea7029758e621e7208bf1c0c5777e97ee3ee0a299f9f2a`；近期 `/v1/responses` 安全审计日志持续 allow，未见 panic/fatal/迁移回滚信号。
+- 处理结果：未执行 `git push main`、`docker compose pull`、`docker compose up -d` 或任何 VPS 变更；当前生产保持 v0.2.15 发布后的镜像，等待 GitHub Actions 可回读后继续门禁。
