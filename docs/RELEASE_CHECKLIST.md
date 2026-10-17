@@ -205,3 +205,9 @@
 - 本地已完成的前端 lint、typecheck、Vitest（373 文件 / 2871 测试）、生产构建、生产审计（high=0、critical=0）和 `wire_gen.go` 重复 provider 静态检查保持通过；本机仍未安装 Go、govulncheck、Docker，因此后端与镜像门禁等待 GitHub Actions 恢复。
 - 只读 VPS 回读：`sub2api`、PostgreSQL、Redis 均 healthy；`http://127.0.0.1:8080/health` 返回 `{"status":"ok"}`；当前生产镜像摘要为 `sha256:e1095d3a2479eabc8eea7029758e621e7208bf1c0c5777e97ee3ee0a299f9f2a`；最近 `/v1/responses` 请求均为 200，未见 panic、fatal、迁移失败或回滚信号。
 - 处理结果：未推送 `main`，未执行 `docker compose pull`、`docker compose up -d` 或任何 VPS 变更。人工事项：在 GitHub 仓库设置中恢复 Actions 后，再重跑 CI/Security Scan，确认 Docker 镜像摘要与提交一致后继续发布。
+
+### 2026-10-17：Actions 已恢复，重新触发 v0.2.17 门禁
+
+- 仓库 Actions 权限已恢复：`enabled=true`、`allowed_actions=all`；CI、CLA Assistant、Build Docker Image、Release、Security Scan 均显示 `active`。
+- 已重跑 main 的 Security Scan，运行 `38234460557` 已被接受但当前仍为 `queued`；升级分支此前无可回读运行记录，因此追加本条真实文档变更以触发分支门禁。
+- 当前仍未推进 `main`，未执行 VPS 拉取、重启或发布；等待升级分支 CI、Security Scan、Build Docker Image 结果后再继续。
