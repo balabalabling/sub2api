@@ -211,3 +211,13 @@
 - 仓库 Actions 权限已恢复：`enabled=true`、`allowed_actions=all`；CI、CLA Assistant、Build Docker Image、Release、Security Scan 均显示 `active`。
 - 已重跑 main 的 Security Scan，运行 `38234460557` 已被接受但当前仍为 `queued`；升级分支此前无可回读运行记录，因此追加本条真实文档变更以触发分支门禁。
 - 当前仍未推进 `main`，未执行 VPS 拉取、重启或发布；等待升级分支 CI、Security Scan、Build Docker Image 结果后再继续。
+
+### 2026-10-24：官方 v0.2.18 合并与本地门禁（远程验证待执行）
+
+- 官方最新稳定版：`v0.2.18`，GitHub release 于 **2026-10-23 15:44 +08:00** 发布；annotated tag `de86961b627e48db75d61fff8c05535d44a00cbe`，剥离提交 `ac1b8f1271be0d674fa6f074403c1410f30a3a81`；`upstream/main`=`5c185c5c5d4f5e409e2139806e0964ae944e03e8`，仅比 tag 多一个 `VERSION` 同步提交；当前 `origin/main`=`779e4dc83091a705ae78c7e00098885cdfab0f64`。
+- 独立分支 `codex/upgrade-v0.2.18` 已从 `origin/main` 合并官方 tag，合并提交 `55bad96aa`，无文本冲突。新增官方迁移 `246_enable_gemini_image_generation_groups.sql`，只把现有 Gemini/Antigravity 分组的 `allow_image_generation=false` 置为 true；迁移 SQL 精确门禁与文件排序检查通过。Ent schema、`wire_gen.go` 均未变化，生成 provider/handler 声明 61 个且无重复。
+- 自定义 PLUS→PRO→API Key→compat 调度、ProMax→PRO、PLUS headroom=true、PRO 五小时豁免相关文件与基线字节一致；升级兼容回归测试文件保持存在。官方 Go 版本同步为 1.27.3；前端 `dompurify` 升至 3.4.17、`follow-redirects` 升至 1.16.1，保留 SheetJS `xlsx` 0.20.3 与既有安全门禁。
+- 前端安全预检：`pnpm audit --prod --audit-level=high` 为 high=0、critical=0、moderate=13、low=2；`check_pnpm_audit_exceptions.py` 通过。
+- 本地前端验证：定向测试 3 文件/142 测试通过；lint、typecheck、全量 Vitest **373 文件 / 2875 测试**、生产构建均通过。构建仅有既有 Browserslist/大 chunk/dynamic import 提示。
+- 本机未安装 Go、govulncheck、Docker，后端编译、govulncheck、完整 CI、Security Scan 与 Docker 镜像构建交由 GitHub Actions；当前尚未推进 `main`，未执行 VPS 变更。
+- CI/Security/Docker run URL、最终提交、镜像摘要与 VPS 健康结果：待远程门禁完成后回填。
