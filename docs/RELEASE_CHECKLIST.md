@@ -221,3 +221,16 @@
 - 本地前端验证：定向测试 3 文件/142 测试通过；lint、typecheck、全量 Vitest **373 文件 / 2875 测试**、生产构建均通过。构建仅有既有 Browserslist/大 chunk/dynamic import 提示。
 - 本机未安装 Go、govulncheck、Docker，后端编译、govulncheck、完整 CI、Security Scan 与 Docker 镜像构建交由 GitHub Actions；当前尚未推进 `main`，未执行 VPS 变更。
 - CI/Security/Docker run URL、最终提交、镜像摘要与 VPS 健康结果：待远程门禁完成后回填。
+
+### 2026-10-24：官方 v0.2.18 生产发布完成
+
+- 官方稳定版：`v0.2.18`；annotated tag `de86961b627e48db75d61fff8c05535d44a00cbe`，剥离提交 `ac1b8f1271be0d674fa6f074403c1410f30a3a81`；对应 `upstream/main`=`5c185c5c5d4f5e409e2139806e0964ae944e03e8`。
+- 升级分支：`codex/upgrade-v0.2.18`；合并提交 `55bad96aa`；最终镜像提交 `97d64d060e44d1228a0c921ac7929ce0aa543c3a`；合并无冲突，保留 PLUS→PRO→API Key→compat 调度、ProMax→PRO、PLUS headroom 和 PRO 五小时豁免；`wire_gen.go` provider 无重复声明。
+- 本地门禁：前端生产审计 high=0、critical=0；373 个 Vitest 文件 / 2875 个测试、lint、typecheck、生产构建通过；迁移 246 静态检查通过。后端 govulncheck 与后端门禁由 Actions 验证。
+- 功能分支 Actions：CI <https://github.com/balabalabling/sub2api/actions/runs/40010763138>、Security Scan <https://github.com/balabalabling/sub2api/actions/runs/40010763189>，均成功。
+- main Actions：CI <https://github.com/balabalabling/sub2api/actions/runs/40062273433>、Security Scan <https://github.com/balabalabling/sub2api/actions/runs/40062273448>、Build Docker Image <https://github.com/balabalabling/sub2api/actions/runs/40062273452>，均成功。
+- 镜像核对：`ghcr.io/balabalabling/sub2api:latest` 与提交标签 `97d64d060e44d1228a0c921ac7929ce0aa543c3a` 指向同一 digest：`sha256:56f77cb9b7ede1480091d8b2dda97742953469220693d54380101568c76a68d3`。
+- VPS 发布前：`sub2api`、PostgreSQL、Redis 均为 healthy；旧镜像 digest 为 `sha256:716fc989c86105cb8ef4404787c39ea1ac56aef64c6b88559974da95d08a5dd4`；`/health` 返回 `{"status":"ok"}`；PostgreSQL 接受连接。
+- VPS 发布动作：在 `/opt/sub2api` 仅执行 `docker compose pull sub2api` 与 `docker compose up -d sub2api`，PostgreSQL、Redis、compose、`.env` 和数据目录未改动；`sub2api` 重建后健康检查通过。
+- VPS 发布后：三个容器均为 healthy；`/health` 返回 `{"status":"ok"}`；运行镜像 digest 为 `sha256:56f77cb9b7ede1480091d8b2dda97742953469220693d54380101568c76a68d3`；迁移 `246_enable_gemini_image_generation_groups.sql` 已记录为 **2026-10-24 12:42:17 +08:00** 应用；近期 `/v1/responses`、`/v1/usage` 和 `/api/v1/auth/me` 请求返回 200，未见 panic、fatal 或迁移错误；无需回滚。
+- 新发现问题：仍有既有生产配置提醒：`security.url_allowlist.enabled=false`、`server.trusted_proxies` 未配置、CORS `allowed_origins` 未配置；本次未改动，后续人工评估反向代理和跨域来源后再处理。
