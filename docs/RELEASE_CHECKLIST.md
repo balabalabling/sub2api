@@ -234,3 +234,26 @@
 - VPS 发布动作：在 `/opt/sub2api` 仅执行 `docker compose pull sub2api` 与 `docker compose up -d sub2api`，PostgreSQL、Redis、compose、`.env` 和数据目录未改动；`sub2api` 重建后健康检查通过。
 - VPS 发布后：三个容器均为 healthy；`/health` 返回 `{"status":"ok"}`；运行镜像 digest 为 `sha256:56f77cb9b7ede1480091d8b2dda97742953469220693d54380101568c76a68d3`；迁移 `246_enable_gemini_image_generation_groups.sql` 已记录为 **2026-10-24 12:42:17 +08:00** 应用；近期 `/v1/responses`、`/v1/usage` 和 `/api/v1/auth/me` 请求返回 200，未见 panic、fatal 或迁移错误；无需回滚。
 - 新发现问题：仍有既有生产配置提醒：`security.url_allowlist.enabled=false`、`server.trusted_proxies` 未配置、CORS `allowed_origins` 未配置；本次未改动，后续人工评估反向代理和跨域来源后再处理。
+
+### 2026-10-31：官方 v0.2.19 安全门禁阻塞（未发布）
+
+- 官方最新稳定版：`v0.2.19`，GitHub release 于 **2026-10-28 18:16 +08:00** 发布；annotated tag `e60cefeaf78f2fbfa95aa076029e28b40d0a5527`，剥离提交 `dece26153621959ccd7635814f4b2d08304e681a`；当前 `origin/main`=`b9622eb4b3e052c048895d0a238bb82affbb7ef8`（v0.2.18），`upstream/main`=`d851a38477597157e78450d30af2d8504764d085`。
+- `v0.2.19` 相对 `origin/main` 新增 71 个提交；`upstream/main` 相对 `origin/main` 新增 87 个提交，其中 tag 之后另有 16 个未进入稳定 tag 的提交。独立 worktree/分支 `H:\sub2api-upgrade-v0.2.19` / `codex/upgrade-v0.2.19` 已从 `origin/main` 创建并无冲突合并，合并提交 `cb46a0e567e5acb8bef2a587e88772bcd61536bf`。
+- 变更审查：官方新增迁移 `247_scoped_admin_api_keys.sql`、`248_group_image_count_billing.sql`，并更新 Ent group schema/generated files、Go `x/*` 依赖和按张计费/管理员 API Key/Grok 诊断等功能；`wire_gen.go` 的 `scopedAdminKeyRepository`、Ollama Cloud、OpenCode Go、Idempotency、Claude reset provider 各仅声明一次。当前 PLUS→PRO→API Key→compat 调度源码未被本次 tag 修改，PLUS headroom、ProMax→PRO 和 PRO 五小时豁免相关代码仍在基线中。
+- 前端安全预检已执行但失败：`pnpm audit --prod --audit-level=high` 报 **4 high / 13 moderate / 4 low**；阻断项为 `GHSA-83rm-6c8r-g728`（`vue-i18n`/`@intlify/*` 9.14.5）和 `GHSA-qr28-fpjm-wq7f`（`decode-uri-component` 0.4.1），现有 `.github/audit-exceptions.yml` 没有对应有效例外，例外检查也失败。官方 `upstream/main` 的 tag 后提交 `d851a3847` 已升级 vue-i18n 到 11.4.16 并将 decode-uri-component 提升到 0.5.1，但该修复尚未进入 v0.2.19 稳定 tag。
+- 后端 `govulncheck` 未执行：本机没有 Go 与 govulncheck；相关后端安全、测试、完整 CI、Security Scan、Docker workflow 均未启动。因前端 high 安全门禁失败，未提交、未推送 `main`，未推进镜像和生产发布。
+- VPS 只读回读已完成：SSH 当前经 `my-vps` 连接到 `67.216.217.42`，与旧 IP `67.216.195.14` 的已知 ECDSA 指纹一致；`sub2api`、PostgreSQL、Redis 均为 healthy，运行镜像摘要为 `sha256:56f77cb9b7ede1480091d8b2dda97742953469220693d54380101568c76a68d3`，`/health` 返回 `{"status":"ok"}`，`pg_isready` 为 accepting connections。最近日志中的 `/v1/responses`、`/api/v1/auth/me` 请求均为 200，安全审计 decision=allow，未见 panic/fatal/迁移失败；本次未执行 `docker compose pull`、`docker compose up -d` 或任何生产变更。证据：`H:\sub2api-upgrade-v0.2.19\tmp\upgrade-v0.2.19\vps-readonly-restored.log`。
+- 处理结果：停在安全预检门禁；本条记录保留在升级 worktree 的未提交 `docs/RELEASE_CHECKLIST.md`，等待官方稳定版修复或人工决定是否把 tag 后安全修复纳入独立升级后重新跑全套门禁。
+
+### 2026-10-31：官方 v0.2.19 安全修复整合与本地门禁完成（远程门禁待执行）
+
+- 目标稳定版仍为 `v0.2.19`：annotated tag `e60cefeaf78f2fbfa95aa076029e28b40d0a5527`，剥离提交 `dece26153621959ccd7635814f4b2d08304e681a`；基线 `origin/main`=`b9622eb4b3e052c048895d0a238bb82affbb7ef8`，官方 `upstream/main`=`d851a38477597157e78450d30af2d8504764d085`。
+- 独立分支 `codex/upgrade-v0.2.19`（`H:\sub2api-upgrade-v0.2.19`）已从 `origin/main` 无冲突合并官方 tag，合并提交 `cb46a0e567e5acb8bef2a587e88772bcd61536bf`。tag 后的 16 个 upstream 提交未整体并入，仅整合最新安全提交 `d851a3847`：`vue-i18n`/`@intlify/message-compiler` 升至 `11.4.16`，CI/release/security workflow 的 Node 版本升至 24，移除过时的 Intlify JIT define，并更新对应测试。
+- 保留本地 SheetJS `xlsx` `0.20.3` CDN 包；同时将 `decode-uri-component` 固定到 `>=0.5.1`。重新审计时发现 **2026-10-30** 新增的 `GHSA-mrwp-f3q8-3g9p`（`follow-redirects` 1.16.0/1.16.1，high），未添加例外，改为新增 `follow-redirects@<1.16.2` 覆盖并锁定 `1.16.2`。
+- 最终前端生产审计结果：high=0、critical=0、moderate=12、low=2；`check_pnpm_audit_exceptions.py` 通过。`pnpm audit` 原始退出码仍为 1，是因为审计结果还包含 moderate/low 项；本项目 Security Scan 工作流按现有流程使用 `|| true` 后由例外检查决定门禁，当前无 high/critical 未处理项。
+- 兼容性复核：官方迁移 `247_scoped_admin_api_keys.sql`、`248_group_image_count_billing.sql` 已保留；迁移顺序与 SQL 静态检查通过。`backend/cmd/server/wire_gen.go` 中 `scopedAdminKeyRepository`、Ollama Cloud、OpenCode Go、Idempotency、Claude reset provider 各仅一份；PLUS→PRO→API Key→compat、PLUS headroom、ProMax→PRO、PRO 五小时豁免的调度源码未被覆盖。图片端点计费字段与管理员 scoped transaction 变化未改变调度优先级。
+- 本地前端验证：lint 通过；typecheck 通过；关键门禁 **30 个测试文件 / 576 个测试**通过；全量 Vitest **377 个测试文件 / 3014 个测试**通过；`check:i18n`、`vue-tsc -b`、Vite 生产构建均通过。构建仅有既有 Browserslist、dynamic import 和大 chunk 提示。
+- 本机全局 `pnpm` 为 12.4.1，而项目门禁使用 Corepack `pnpm@9.15.9`；直接调用全局 pnpm 的脚本构建会尝试清理模块目录，改用项目版本显式执行后构建通过。远端 workflow 已由 `pnpm/action-setup` 固定 pnpm 9，并使用 Node 24。
+- 本机仍无 Go、`govulncheck`、Docker；后端编译、`govulncheck`、完整 CI、Security Scan 和 Docker workflow 尚未执行，等待推送升级分支后由 GitHub Actions 验证。
+- VPS 只读基线保持：`my-vps` 当前连接 `67.216.217.42`；三容器 healthy，`/health` 为 `{"status":"ok"}`，生产镜像摘要仍为 `sha256:56f77cb9b7ede1480091d8b2dda97742953469220693d54380101568c76a68d3`，本次尚未执行 `docker compose pull`、`docker compose up -d` 或任何生产变更。
+- 处理结果：本地无合并冲突，安全与前端门禁已恢复；当前尚未提交、推送 `main`、构建新镜像或发布 VPS，下一步进入升级分支提交、远程 CI/Security/Docker 门禁。
