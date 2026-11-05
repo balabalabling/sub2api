@@ -45,6 +45,8 @@ func TestFetchOpenAIAccountModelsOAuthPopulatesPickerFields(t *testing.T) {
 	}
 	require.Contains(t, ids, "gpt-image-2.5-flare")
 	require.Contains(t, ids, "gpt-image-2.5-sunburst")
+	require.Contains(t, ids, "gpt-image-2.6-flare")
+	require.Contains(t, ids, "gpt-image-2.6-sunburst")
 
 	after, err := gateway.FetchOpenAIModelsList(ctx, account)
 	require.NoError(t, err)
@@ -125,6 +127,7 @@ func TestFetchOpenAIAccountModelsOAuthLabelsLocalImageModelsLikeUpstream(t *test
 	account.Credentials["model_mapping"] = map[string]any{
 		"gpt-5.6-sol":         "gpt-5.6-sol",
 		"gpt-image-2.5-flare": "gpt-image-2.5-flare",
+		"gpt-image-2.6-flare": "gpt-image-2.6-flare",
 	}
 	models, err := svc.FetchOpenAIAccountModels(context.Background(), account)
 	require.NoError(t, err)
@@ -134,13 +137,14 @@ func TestFetchOpenAIAccountModelsOAuthLabelsLocalImageModelsLikeUpstream(t *test
 	}
 	require.Equal(t, "GPT-5.6 Sol", byID["gpt-5.6-sol"], "upstream slug must not be the only label source")
 	require.Equal(t, "GPT Image 2.5 Flare", byID["gpt-image-2.5-flare"], "locally added models use the same naming rule")
+	require.Equal(t, "GPT Image 2.6 Flare", byID["gpt-image-2.6-flare"], "locally added models use the same naming rule")
 }
 
 func TestFetchOpenAIAccountModelsOAuthRespectsImageAllowlist(t *testing.T) {
 	newCodexModelsOAuthCacheServer(t, `{"models":[{"slug":"gpt-6-astra"}]}`)
 	svc := &AccountTestService{openaiGatewayService: &OpenAIGatewayService{}}
 	account := newCodexModelsTestAccount()
-	account.Credentials["model_mapping"] = map[string]any{"gpt-image-2.5-flare": "gpt-image-2.5-flare"}
+	account.Credentials["model_mapping"] = map[string]any{"gpt-image-2.5-flare": "gpt-image-2.5-flare", "gpt-image-2.6-flare": "gpt-image-2.6-flare"}
 	models, err := svc.FetchOpenAIAccountModels(context.Background(), account)
 	require.NoError(t, err)
 	ids := []string{}
@@ -148,7 +152,9 @@ func TestFetchOpenAIAccountModelsOAuthRespectsImageAllowlist(t *testing.T) {
 		ids = append(ids, model.ID)
 	}
 	require.Contains(t, ids, "gpt-image-2.5-flare")
+	require.Contains(t, ids, "gpt-image-2.6-flare")
 	require.NotContains(t, ids, "gpt-image-2.5-sunburst")
+	require.NotContains(t, ids, "gpt-image-2.6-sunburst")
 }
 
 func pickerModelIDs(models []openai.Model) []string {
