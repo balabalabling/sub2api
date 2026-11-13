@@ -257,3 +257,13 @@
 - 本机仍无 Go、`govulncheck`、Docker；后端编译、`govulncheck`、完整 CI、Security Scan 和 Docker workflow 尚未执行，等待推送升级分支后由 GitHub Actions 验证。
 - VPS 只读基线保持：`my-vps` 当前连接 `67.216.217.42`；三容器 healthy，`/health` 为 `{"status":"ok"}`，生产镜像摘要仍为 `sha256:56f77cb9b7ede1480091d8b2dda97742953469220693d54380101568c76a68d3`，本次尚未执行 `docker compose pull`、`docker compose up -d` 或任何生产变更。
 - 处理结果：本地无合并冲突，安全与前端门禁已恢复；当前尚未提交、推送 `main`、构建新镜像或发布 VPS，下一步进入升级分支提交、远程 CI/Security/Docker 门禁。
+
+### 2026-11-14：官方 v0.2.21 合并与本地门禁完成（远程门禁待执行）
+
+- 官方最新稳定版：`v0.2.21`，GitHub release 于 **2026-11-11 10:21 +08:00** 发布；tag 对象 `e2c9812190dd71bb309c8ad020a1211da1e0d3b4`，剥离提交 `10ba8f9b4dc2e6023d4a9879ab77b21841babd10`；`upstream/main`=`530c5e3a4f9c73ca2b0881191d0ef8e0d82c5484`，另有 2 个发布后提交；基线 `origin/main`=`8ccb43c6187ff01b3521512af6f5498a0c7019ec`，tag 相对基线新增 194 个提交。
+- 独立 worktree：`H:\sub2api-upgrade-v0.2.21`；分支：`codex/upgrade-v0.2.21`。官方 tag 已在本地合并结果中整合，无未解决冲突；保留 PLUS→PRO→API Key→compat 调度、ProMax/PLUS headroom/PRO 五小时规则及现有自定义迁移。主工作区 `H:\sub2api` 的未提交清单记录未触碰。
+- 迁移静态检查：新增 `249_add_usage_logs_api_key_cost_index_notx.sql`、`249_mcp_oauth.sql`、`250_openai_cache_write_ttl.sql`；文件名排序与非事务 `CONCURRENTLY` 规则通过，249 双文件按完整文件名独立记录；Ent 生成 schema 已同步。
+- 生成文件检查：`backend/cmd/server/wire_gen.go` 保留 Ollama Cloud、OpenCode Go、Idempotency、Claude reset、Gemini cached content 等 provider，未发现重复声明。
+- 前端门禁：lint、typecheck、i18n 检查、Vitest **386 文件 / 3113 测试**、`vue-tsc -b` 与 Vite 生产构建通过；生产审计 **high=0、critical=0、moderate=12、low=2**，审计例外检查通过。生成的 `frontend/audit.json` 已恢复，不纳入提交。
+- 本机缺少 Go、`govulncheck`、Docker；后端编译/测试/govulncheck、完整 CI、Security Scan、Docker 镜像构建和生产发布等待远程门禁。当前尚未提交、推送 `main` 或修改 VPS。
+- 新发现问题：本轮未发现合并冲突或调度行为冲突；生产配置既有 `trusted_proxies`、CORS、URL allowlist 提醒仍需人工评估。
