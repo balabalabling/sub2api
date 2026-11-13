@@ -274,3 +274,9 @@
 - 推送后 `CI`、`Security Scan` 均未生成 run；该提交的 commit status 为 `pending` 且无 checks。`Build Docker Image` 仅对 `main`/`master` push 触发，因此尚未生成。
 - 尝试对 `CI` 和 `Security Scan` 进行 workflow dispatch，GitHub API 返回 **HTTP 422: Actions has been disabled for this repository**；当前无法获得可验证的 CI/Security/Docker run URL。
 - 因远程门禁无成功结果，未推进 `main`，未执行 `docker compose pull sub2api`、`docker compose up -d sub2api` 或任何 VPS 生产变更。人工事项：恢复仓库 Actions 后重新触发/回读 PR 2 的 CI 与 Security Scan，再确认 main Build Docker Image 与镜像 digest 后继续发布。
+
+### 2026-11-14：v0.2.21 发布前生产只读核验（未发布）
+
+- 经 `ssh -o HostKeyAlias=67.216.195.14 my-vps` 只读回读 `/opt/sub2api`：`sub2api`、PostgreSQL、Redis 均 healthy；`http://127.0.0.1:8080/health` 返回 `{"status":"ok"}`；`pg_isready` 返回 accepting connections。
+- 当前生产 `ghcr.io/balabalabling/sub2api:latest` 镜像 digest：`sha256:702f33b735f118f45b4516c4d2e9c130cbf804e28e84f4c06b77a2aa323d143b`；本轮未执行 pull、up、重启或任何配置/数据写入。
+- 最近日志中的 `/v1/responses` 与 `/api/v1/auth/me` 均返回 200，安全审计为 `allow`，未见 panic、fatal、migration 或 rollback 信号。
