@@ -267,3 +267,10 @@
 - 前端门禁：lint、typecheck、i18n 检查、Vitest **386 文件 / 3113 测试**、`vue-tsc -b` 与 Vite 生产构建通过；生产审计 **high=0、critical=0、moderate=12、low=2**，审计例外检查通过。生成的 `frontend/audit.json` 已恢复，不纳入提交。
 - 本机缺少 Go、`govulncheck`、Docker；后端编译/测试/govulncheck、完整 CI、Security Scan、Docker 镜像构建和生产发布等待远程门禁。当前尚未提交、推送 `main` 或修改 VPS。
 - 新发现问题：本轮未发现合并冲突或调度行为冲突；生产配置既有 `trusted_proxies`、CORS、URL allowlist 提醒仍需人工评估。
+
+### 2026-11-14：v0.2.21 远程门禁未启动（未发布）
+
+- 升级提交 `c0ac597154a234e2261333b7fd226c716bfb8f57` 已推送到 `codex/upgrade-v0.2.21`，PR：<https://github.com/balabalabling/sub2api/pull/2>；PR 状态 `OPEN/CLEAN/MERGEABLE`。
+- 推送后 `CI`、`Security Scan` 均未生成 run；该提交的 commit status 为 `pending` 且无 checks。`Build Docker Image` 仅对 `main`/`master` push 触发，因此尚未生成。
+- 尝试对 `CI` 和 `Security Scan` 进行 workflow dispatch，GitHub API 返回 **HTTP 422: Actions has been disabled for this repository**；当前无法获得可验证的 CI/Security/Docker run URL。
+- 因远程门禁无成功结果，未推进 `main`，未执行 `docker compose pull sub2api`、`docker compose up -d sub2api` 或任何 VPS 生产变更。人工事项：恢复仓库 Actions 后重新触发/回读 PR 2 的 CI 与 Security Scan，再确认 main Build Docker Image 与镜像 digest 后继续发布。
