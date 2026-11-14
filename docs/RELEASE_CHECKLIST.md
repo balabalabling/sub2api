@@ -301,3 +301,11 @@
 - push 与 PR 的 Security Scan 均失败，`govulncheck` 报告标准库漏洞 `GO-2026-6859`（CVE-2026-97054）：Go `1.27.3` 的 `net/http` 有 HTTP/1 服务端 header race/crash 问题，修复版为 `1.27.4`；govulncheck 确认 0 个可达第三方模块漏洞，另有 6 个未被调用模块告警。
 - 已确认 Go 官方发行列表包含 `1.27.4`，Docker Hub 的 `golang:1.27.4-alpine` 标签可用。升级分支将 `backend/go.mod`、CI/Security/Release 版本断言及三个 Dockerfile 的 Go builder 对齐至 `1.27.4`，并同步更新 `DEV_GUIDE.md`。这是安全修复；新提交的完整 CI/Security 结果待回读。
 - 在新 SHA 的门禁全部成功前，不推进 `main`，不启动 Build Docker Image，不执行 VPS 发布。
+
+### 2026-11-14：v0.2.21 main 门禁通过与 VPS 发布待确认
+
+- 最终升级提交 `8465c2dc376bd54b90f0ca2163fd4eec17da0f3c`（`fix(security): upgrade Go to 1.27.4`）已快进推送至 `main`；升级 PR 检查为 CLEAN/MERGEABLE。分支 CI：<https://github.com/balabalabling/sub2api/actions/runs/43593972072>；分支 Security Scan：<https://github.com/balabalabling/sub2api/actions/runs/43593972064>；均成功。main CI：<https://github.com/balabalabling/sub2api/actions/runs/43595204857>；main Security Scan：<https://github.com/balabalabling/sub2api/actions/runs/43595204865>；Build Docker Image：<https://github.com/balabalabling/sub2api/actions/runs/43595204930>；均成功。
+- Go `1.27.4` 的 `govulncheck` 通过，修复 `GO-2026-6859`；前端生产审计、前后端 CI、集成测试、golangci-lint 与镜像构建门禁均成功。
+- GHCR registry 直接核验：`ghcr.io/balabalabling/sub2api:latest` 与提交标签 `8465c2dc376bd54b90f0ca2163fd4eec17da0f3c` 均为 `sha256:2378d44a81a1fd28958db1726bf343582508c211ca9f230ee24cb80b450578a2`。
+- VPS 发布前只读基线：`sub2api`、PostgreSQL、Redis 均 healthy；`/health`=`{"status":"ok"}`；PostgreSQL accepting connections；运行容器 RepoDigest 为 `ghcr.io/balabalabling/sub2api@sha256:702f33b735f118f45b4516c4d2e9c130cbf804e28e84f4c06b77a2aa323d143b`；最近 120 行未发现 panic、fatal、migration failure 或 rollback。
+- 本次尚未执行 `docker compose pull sub2api` 或 `docker compose up -d sub2api`；依项目发布规则，等待用户确认后再更新容器并执行发布后健康/日志回读。
