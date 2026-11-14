@@ -288,3 +288,9 @@
 - 但对 `backend-ci.yml` 的 workflow dispatch 仍返回 **HTTP 422：Actions has been disabled for this repository**；`7c8e55e` 的 CI、Security Scan、PR checks 仍均为 0，无可验证 run URL。读取 Actions cache retention limit 另返回 **HTTP 402**，提示账户需要有效 payment method，说明仓库设置字段为 enabled 与 GitHub 执行门禁状态不一致。
 - 本轮无 CI/Security/Docker run URL、无新镜像摘要；生产当前镜像仍为 `sha256:702f33b735f118f45b4516c4d2e9c130cbf804e28e84f4c06b77a2aa323d143b`。VPS 之前只读核验仍为三容器 healthy、`/health` 正常、`pg_isready` accepting；本轮未执行 `docker compose pull`、`docker compose up -d`、重启或任何生产写入。
 - 处理结果：停在远程门禁，未推送 `main`、未核验 main Docker 镜像与提交对应 digest、未发布 VPS。人工事项：在 GitHub 账户/仓库侧恢复可执行 Actions（包括计费/付款门禁），然后重新回读本分支 CI 与 Security Scan，再继续 main/Docker/VPS 发布链。
+
+### 2026-11-14：fork Actions 手动重新启用，触发升级分支门禁
+
+- GitHub fork 页面明确显示 `Workflows on this fork have been disabled`；用户已点击确认重新启用。API 回读仓库 Actions 为 enabled/all，CI、Security Scan、Build Docker Image 等 workflows 均为 active。
+- 原提交 `685d07f02ad127997948e5b960da0c62e18e6b78` 未被补跑，精确 SHA 的 runs=0、PR checks=0；接下来通过本次清单文档提交产生新的 push 事件，以触发升级分支 CI 与 Security Scan。
+- 本次仅记录重新启用和触发门禁；不推送 `main`，不执行 VPS pull/up。Docker workflow 仍须等门禁成功并推进 main 后验证。
