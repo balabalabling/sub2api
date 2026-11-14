@@ -294,3 +294,10 @@
 - GitHub fork 页面明确显示 `Workflows on this fork have been disabled`；用户已点击确认重新启用。API 回读仓库 Actions 为 enabled/all，CI、Security Scan、Build Docker Image 等 workflows 均为 active。
 - 原提交 `685d07f02ad127997948e5b960da0c62e18e6b78` 未被补跑，精确 SHA 的 runs=0、PR checks=0；接下来通过本次清单文档提交产生新的 push 事件，以触发升级分支 CI 与 Security Scan。
 - 本次仅记录重新启用和触发门禁；不推送 `main`，不执行 VPS pull/up。Docker workflow 仍须等门禁成功并推进 main 后验证。
+
+### 2026-11-14：v0.2.21 govulncheck 告警与 Go 工具链修复
+
+- fork Actions 重新启用后，提交 `4dee81ac0687d45cd500b12c3a8c9316f86d187b` 的 push CI 成功：<https://github.com/balabalabling/sub2api/actions/runs/43592870229>；PR 同 SHA 的 CI 尚在执行：<https://github.com/balabalabling/sub2api/actions/runs/43592874886>。
+- push 与 PR 的 Security Scan 均失败，`govulncheck` 报告标准库漏洞 `GO-2026-6859`（CVE-2026-97054）：Go `1.27.3` 的 `net/http` 有 HTTP/1 服务端 header race/crash 问题，修复版为 `1.27.4`；govulncheck 确认 0 个可达第三方模块漏洞，另有 6 个未被调用模块告警。
+- 已确认 Go 官方发行列表包含 `1.27.4`，Docker Hub 的 `golang:1.27.4-alpine` 标签可用。升级分支将 `backend/go.mod`、CI/Security/Release 版本断言及三个 Dockerfile 的 Go builder 对齐至 `1.27.4`，并同步更新 `DEV_GUIDE.md`。这是安全修复；新提交的完整 CI/Security 结果待回读。
+- 在新 SHA 的门禁全部成功前，不推进 `main`，不启动 Build Docker Image，不执行 VPS 发布。
