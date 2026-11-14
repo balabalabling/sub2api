@@ -309,3 +309,11 @@
 - GHCR registry 直接核验：`ghcr.io/balabalabling/sub2api:latest` 与提交标签 `8465c2dc376bd54b90f0ca2163fd4eec17da0f3c` 均为 `sha256:2378d44a81a1fd28958db1726bf343582508c211ca9f230ee24cb80b450578a2`。
 - VPS 发布前只读基线：`sub2api`、PostgreSQL、Redis 均 healthy；`/health`=`{"status":"ok"}`；PostgreSQL accepting connections；运行容器 RepoDigest 为 `ghcr.io/balabalabling/sub2api@sha256:702f33b735f118f45b4516c4d2e9c130cbf804e28e84f4c06b77a2aa323d143b`；最近 120 行未发现 panic、fatal、migration failure 或 rollback。
 - 本次尚未执行 `docker compose pull sub2api` 或 `docker compose up -d sub2api`；依项目发布规则，等待用户确认后再更新容器并执行发布后健康/日志回读。
+
+### 2026-11-14：v0.2.21 VPS 生产发布完成
+
+- 用户确认生产发布后，在 `/opt/sub2api` 执行 `docker compose pull sub2api` 成功；拉取后先核对 `ghcr.io/balabalabling/sub2api:latest` 的 RepoDigest 为目标 `sha256:2378d44a81a1fd28958db1726bf343582508c211ca9f230ee24cb80b450578a2`，再执行 `docker compose up -d sub2api`。仅重建 `sub2api`；PostgreSQL 与 Redis 保持原容器运行。
+- 发布后 `sub2api`、PostgreSQL、Redis 均 healthy；`http://127.0.0.1:8080/health` 返回 `{"status":"ok"}`；`pg_isready` 返回 accepting connections。
+- 运行容器 RepoDigest 与 GHCR `latest`/提交标签一致：`ghcr.io/balabalabling/sub2api@sha256:2378d44a81a1fd28958db1726bf343582508c211ca9f230ee24cb80b450578a2`。发布前回滚基线：`ghcr.io/balabalabling/sub2api@sha256:702f33b735f118f45b4516c4d2e9c130cbf804e28e84f4c06b77a2aa323d143b`；健康门禁通过，无需回滚。
+- 数据库 `schema_migrations` 已记录 `249_add_usage_logs_api_key_cost_index_notx.sql`（22:08:20.472482 +08:00）、`249_mcp_oauth.sql`（22:08:20.476156 +08:00）、`250_openai_cache_write_ttl.sql`（22:08:20.552270 +08:00）。
+- 发布后最近 120 行应用日志未发现 panic、fatal、migration failure、rollback 或 `level=error`；本次未发现新问题。
