@@ -280,3 +280,11 @@
 - 经 `ssh -o HostKeyAlias=67.216.195.14 my-vps` 只读回读 `/opt/sub2api`：`sub2api`、PostgreSQL、Redis 均 healthy；`http://127.0.0.1:8080/health` 返回 `{"status":"ok"}`；`pg_isready` 返回 accepting connections。
 - 当前生产 `ghcr.io/balabalabling/sub2api:latest` 镜像 digest：`sha256:702f33b735f118f45b4516c4d2e9c130cbf804e28e84f4c06b77a2aa323d143b`；本轮未执行 pull、up、重启或任何配置/数据写入。
 - 最近日志中的 `/v1/responses` 与 `/api/v1/auth/me` 均返回 200，安全审计为 `allow`，未见 panic、fatal、migration 或 rollback 信号。
+
+### 2026-11-14：v0.2.21 远程 Actions 仍被 GitHub 阻断（未发布）
+
+- 当前升级提交：`7c8e55eb32c7e0c59db4f0ef4ae66080557f8ba7`，分支 `codex/upgrade-v0.2.21`，PR：<https://github.com/balabalabling/sub2api/pull/2>；工作区 clean，未推进 `main`。
+- 已再次通过 GitHub REST 将仓库 Actions 设置写为 `enabled=true`、`allowed_actions=all`、`sha_pinning_required=false`（HTTP 204），并将 CI、Security Scan、Build Docker Image workflow 重新启用（均 HTTP 204）；API 回读设置为 enabled/all。
+- 但对 `backend-ci.yml` 的 workflow dispatch 仍返回 **HTTP 422：Actions has been disabled for this repository**；`7c8e55e` 的 CI、Security Scan、PR checks 仍均为 0，无可验证 run URL。读取 Actions cache retention limit 另返回 **HTTP 402**，提示账户需要有效 payment method，说明仓库设置字段为 enabled 与 GitHub 执行门禁状态不一致。
+- 本轮无 CI/Security/Docker run URL、无新镜像摘要；生产当前镜像仍为 `sha256:702f33b735f118f45b4516c4d2e9c130cbf804e28e84f4c06b77a2aa323d143b`。VPS 之前只读核验仍为三容器 healthy、`/health` 正常、`pg_isready` accepting；本轮未执行 `docker compose pull`、`docker compose up -d`、重启或任何生产写入。
+- 处理结果：停在远程门禁，未推送 `main`、未核验 main Docker 镜像与提交对应 digest、未发布 VPS。人工事项：在 GitHub 账户/仓库侧恢复可执行 Actions（包括计费/付款门禁），然后重新回读本分支 CI 与 Security Scan，再继续 main/Docker/VPS 发布链。
