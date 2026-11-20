@@ -329,3 +329,12 @@
 - 后端：调度定向测试、迁移测试、`cmd/server` 测试和 `go build ./cmd/server` 通过。完整 `go test ./...` 在 Windows 环境仍有已知环境阻塞：`TestCgroupMemoryLimit` 创建 symlink 被拒绝、Aliyun CAPTCHA 外部接口返回 502、备份测试依赖 PATH 中缺少 `sh`；其余核心 service/handler/server/migrations 包已通过，最终以后续 Linux CI 为完整门禁。
 - 当前尚未提交、推送 `main`、运行远程 CI/Security/Docker 或修改 VPS；下一步提交并推送升级分支，等待 exact-SHA CI/Security 成功，再推进 `main` 和镜像构建。
 - 本轮记录时间：2026-11-21 03:50:25 +08:00。
+
+### 2026-11-21：v0.2.24 远程门禁通过、生产发布待确认
+
+- 修复了首次分支门禁中 `golangci-lint` 的格式失败：失败 run `44806070682`；仅涉及 `backend/internal/service/image_generation_intent.go` 与 `backend/internal/service/openai_oauth_model_support_test.go` 的 gofmt，修复提交为 `47bb6ccce3b56571a977c714719c898a8cb072c9`。修复后的升级分支 CI `https://github.com/balabalbling/sub2api/actions/runs/44810147483`、Security Scan `https://github.com/balabalbling/sub2api/actions/runs/44810147036` 均成功。
+- `main` 已快进到 `47bb6ccce3b56571a977c714719c898a8cb072c9`。main CI `https://github.com/balabalbling/sub2api/actions/runs/44812375550`、Security Scan `https://github.com/balabalbling/sub2api/actions/runs/44812376168`、Build Docker Image `https://github.com/balabalbling/sub2api/actions/runs/44812375527` 均成功。
+- GHCR 直接 manifest 核对：`ghcr.io/balabalbling/sub2api:latest` 与提交标签 `47bb6ccce3b56571a977c714719c898a8cb072c9` 均指向 `sha256:b7ec86f8d67017039973a120ea2c80f12bee6ce6d2a5ed8cce00ed5e433dcb76`。
+- 生产发布前只读核验未完成：`ssh my-vps` 连接 `67.216.217.42:22` 超时，TCP 22 当前不可达；因此本轮没有获取最新容器状态/健康/日志，也没有执行 `docker compose pull`、`docker compose up -d`、重启或任何生产写入。最近一次可验证生产镜像（2026-11-14）为 `sha256:2378d44a81a1fd28958db1726bf343582508c211ca9f230ee24cb80b450578a2`，本轮视为历史基线而非当前确认值。
+- 按项目生产门禁，当前等待用户明确确认后再执行仅更新 `sub2api` 的 pull/up；SSH 恢复后先回读发布前摘要，再执行发布后健康检查，失败时按旧摘要回滚。
+- 本轮记录时间：2026-11-21 04:50:23 +08:00。
