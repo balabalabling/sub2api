@@ -261,7 +261,7 @@
 ### 2026-11-14：官方 v0.2.21 合并与本地门禁完成（远程门禁待执行）
 
 - 官方最新稳定版：`v0.2.21`，GitHub release 于 **2026-11-11 10:21 +08:00** 发布；tag 对象 `e2c9812190dd71bb309c8ad020a1211da1e0d3b4`，剥离提交 `10ba8f9b4dc2e6023d4a9879ab77b21841babd10`；`upstream/main`=`530c5e3a4f9c73ca2b0881191d0ef8e0d82c5484`，另有 2 个发布后提交；基线 `origin/main`=`8ccb43c6187ff01b3521512af6f5498a0c7019ec`，tag 相对基线新增 194 个提交。
-- 独立 worktree：`H:\sub2api-upgrade-v0.2.21`；分支：`codex/upgrade-v0.2.21`。官方 tag 已在本地合并结果中整合，无未解决冲突；保留 PLUS→PRO→API Key→compat 调度、ProMax/PLUS headroom/PRO 五小时规则及现有自定义迁移。主工作区 `H:\sub2api` 的未提交清单记录未触碰。
+- 独立 worktree：`H:\sub2api-upgrade-v0.2.24`；分支：`codex/upgrade-v0.2.24`。合并初始冲突为 `DEV_GUIDE.md`、`backend/cmd/server/VERSION`、`backend/internal/service/image_generation_intent.go`，已完成兼容整合；当前无未解决冲突，`git diff --cached --check` 通过。
 - 迁移静态检查：新增 `249_add_usage_logs_api_key_cost_index_notx.sql`、`249_mcp_oauth.sql`、`250_openai_cache_write_ttl.sql`；文件名排序与非事务 `CONCURRENTLY` 规则通过，249 双文件按完整文件名独立记录；Ent 生成 schema 已同步。
 - 生成文件检查：`backend/cmd/server/wire_gen.go` 保留 Ollama Cloud、OpenCode Go、Idempotency、Claude reset、Gemini cached content 等 provider，未发现重复声明。
 - 前端门禁：lint、typecheck、i18n 检查、Vitest **386 文件 / 3113 测试**、`vue-tsc -b` 与 Vite 生产构建通过；生产审计 **high=0、critical=0、moderate=12、low=2**，审计例外检查通过。生成的 `frontend/audit.json` 已恢复，不纳入提交。
@@ -317,3 +317,15 @@
 - 运行容器 RepoDigest 与 GHCR `latest`/提交标签一致：`ghcr.io/balabalabling/sub2api@sha256:2378d44a81a1fd28958db1726bf343582508c211ca9f230ee24cb80b450578a2`。发布前回滚基线：`ghcr.io/balabalabling/sub2api@sha256:702f33b735f118f45b4516c4d2e9c130cbf804e28e84f4c06b77a2aa323d143b`；健康门禁通过，无需回滚。
 - 数据库 `schema_migrations` 已记录 `249_add_usage_logs_api_key_cost_index_notx.sql`（22:08:20.472482 +08:00）、`249_mcp_oauth.sql`（22:08:20.476156 +08:00）、`250_openai_cache_write_ttl.sql`（22:08:20.552270 +08:00）。
 - 发布后最近 120 行应用日志未发现 panic、fatal、migration failure、rollback 或 `level=error`；本次未发现新问题。
+
+### 2026-11-21：官方 v0.2.24 合并与本地门禁（远程门禁待执行）
+
+- 官方最新稳定版：`v0.2.24`，tag 对象 `7515db6dc56c2a6120dfb7abed70ef089ebc1457`，剥离提交 `5c2982a81b46e2142d0143d2f83c1ce9c4da1d24`，tag 时间 `2026-11-20 17:12:26 +08:00`；当前 `origin/main`=`c2e0d9d03906ff79a1d425082b2f46f7d6bced7b`，`upstream/main`=`328db26f450edbdf9f8d4344a3ea903ac6396842`，仅比稳定 tag 多一个 VERSION 同步提交。
+- 独立 worktree：`H:\sub2api-upgrade-v0.2.24`；分支：`codex/upgrade-v0.2.24`。合并初始冲突为 `DEV_GUIDE.md`、`backend/cmd/server/VERSION`、`backend/internal/service/image_generation_intent.go`，已完成兼容整合；当前无未解决冲突，`git diff --cached --check` 通过。
+- 调度兼容：`openai_account_scheduler*.go`、`openai_account_tier.go` 等 PLUS→PRO→API Key 相关源码未被覆盖；已有 ProMax/Business Premium 识别、PLUS headroom 和 PRO 五小时规则保持；调度回归定向测试通过。
+- 官方新增迁移 `251_group_force_openai_ultrafast.sql`、`251_group_usage_rollup_nonblocking_build.sql`、`252_channel_pricing_ultrafast_multiplier.sql` 已检查；重复数字前缀按完整文件名排序，与现有迁移 runner 规则一致。迁移测试通过。
+- 生成文件：`backend/cmd/server/wire_gen.go` 已保留本地 Ollama Cloud 与官方 OpenCode Go、Idempotency、Claude reset 等 provider；`go test ./cmd/server` 通过，未发现重复 provider。
+- 本地安全与前端门禁：`govulncheck ./...` 通过（0 个可达漏洞）；生产依赖审计 high=0、critical=0、moderate=12、low=2，例外检查通过；lint、i18n、typecheck 通过；Vitest **389 个文件 / 3189 个测试**通过；Vite 生产构建通过，仅有既有 Browserslist、dynamic import 和大 chunk 提示。
+- 后端：调度定向测试、迁移测试、`cmd/server` 测试和 `go build ./cmd/server` 通过。完整 `go test ./...` 在 Windows 环境仍有已知环境阻塞：`TestCgroupMemoryLimit` 创建 symlink 被拒绝、Aliyun CAPTCHA 外部接口返回 502、备份测试依赖 PATH 中缺少 `sh`；其余核心 service/handler/server/migrations 包已通过，最终以后续 Linux CI 为完整门禁。
+- 当前尚未提交、推送 `main`、运行远程 CI/Security/Docker 或修改 VPS；下一步提交并推送升级分支，等待 exact-SHA CI/Security 成功，再推进 `main` 和镜像构建。
+- 本轮记录时间：2026-11-21 03:50:25 +08:00。
