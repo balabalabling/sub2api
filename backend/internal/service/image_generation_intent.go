@@ -238,6 +238,7 @@ func OpenAIImageGenerationRoutingModelFromBody(body []byte) string {
 	}
 	return ""
 }
+
 // IsImageGenerationIntentMap is the map-backed variant used after service-side request mutation.
 func IsImageGenerationIntentMap(endpoint string, requestedModel string, reqBody map[string]any) bool {
 	if IsImageGenerationEndpoint(endpoint) {
