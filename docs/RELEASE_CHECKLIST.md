@@ -338,3 +338,11 @@
 - 生产发布前只读核验未完成：`ssh my-vps` 连接 `67.216.217.42:22` 超时，TCP 22 当前不可达；因此本轮没有获取最新容器状态/健康/日志，也没有执行 `docker compose pull`、`docker compose up -d`、重启或任何生产写入。最近一次可验证生产镜像（2026-11-14）为 `sha256:2378d44a81a1fd28958db1726bf343582508c211ca9f230ee24cb80b450578a2`，本轮视为历史基线而非当前确认值。
 - 按项目生产门禁，当前等待用户明确确认后再执行仅更新 `sub2api` 的 pull/up；SSH 恢复后先回读发布前摘要，再执行发布后健康检查，失败时按旧摘要回滚。
 - 本轮记录时间：2026-11-21 04:50:23 +08:00。
+
+### 2026-11-21：v0.2.24 VPS 连接恢复与发布前基线复核
+
+- 按参考会话 `codex://threads/01a1f969-6c31-7de2-8480-75c37403b8e4` 将本机 `my-vps` SSH 连接固定为经 `127.0.0.1:7897` 的 Clash HTTP CONNECT 代理；Git `connect.exe` 作为 `ProxyCommand`，主机密钥算法锁定 `ssh-ed25519`，`StrictHostKeyChecking=yes`。当前主机 `67.216.217.42` 的 Ed25519 指纹与 FinalShell 保存值及 OpenSSH `known_hosts` 一致：`SHA256:P/rWmPzKuMz0xOibsPzeTAv6tsX9ekQFebwRWM4osoQ`。
+- 使用 `ssh my-vps` 只读连接成功；`/opt/sub2api` 存在。发布前回读：`sub2api`、PostgreSQL、Redis 均 healthy；`http://127.0.0.1:8080/health` 返回 `{"status":"ok"}`；`pg_isready` 接受连接；最近 120 行应用日志匹配 panic/fatal/migration failure/rollback/level=error 的条目数为 0。
+- 当前生产镜像仍为 `sha256:2378d44a81a1fd28958db1726bf343582508c211ca9f230ee24cb80b450578a2`，可作为本次回滚基线；目标镜像为 `sha256:b7ec86f8d67017039973a120ea2c80f12bee6ce6d2a5ed8cce00ed5e433dcb76`。
+- 本次仅执行连接验证和发布前只读核验；生产 pull/up 尚待明确确认。确认后仅更新 `sub2api`，发布后回读容器、健康端点、PostgreSQL、日志和 digest。
+- 本轮记录时间：2026-11-21 21:37:07 +08:00。
