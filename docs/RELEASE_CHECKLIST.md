@@ -346,3 +346,12 @@
 - 当前生产镜像仍为 `sha256:2378d44a81a1fd28958db1726bf343582508c211ca9f230ee24cb80b450578a2`，可作为本次回滚基线；目标镜像为 `sha256:b7ec86f8d67017039973a120ea2c80f12bee6ce6d2a5ed8cce00ed5e433dcb76`。
 - 本次仅执行连接验证和发布前只读核验；生产 pull/up 尚待明确确认。确认后仅更新 `sub2api`，发布后回读容器、健康端点、PostgreSQL、日志和 digest。
 - 本轮记录时间：2026-11-21 21:37:07 +08:00。
+
+### 2026-11-21：v0.2.24 VPS 生产发布完成
+
+- 用户确认发布后，通过已验证的 `ssh my-vps` 代理链路在 `/opt/sub2api` 执行 `docker compose pull sub2api` 与 `docker compose up -d sub2api`。仅重建 `sub2api`；PostgreSQL、Redis 保持运行，未改 compose、`.env` 或数据目录。
+- 发布前运行镜像 digest：`sha256:2378d44a81a1fd28958db1726bf343582508c211ca9f230ee24cb80b450578a2`；作为回滚基线保留。GHCR `latest` 与提交标签 `47bb6ccce3b56571a977c714719c898a8cb072c9` 均核对为目标 `sha256:b7ec86f8d67017039973a120ea2c80f12bee6ce6d2a5ed8cce00ed5e433dcb76`；拉取后镜像摘要、运行容器 image ID 与目标一致。
+- 发布后 `docker compose ps` 显示 `sub2api`、PostgreSQL、Redis 均 healthy；`http://127.0.0.1:8080/health` 返回 `{"status":"ok"}`；PostgreSQL `pg_isready` 接受连接。
+- 数据库迁移记录：`251_group_force_openai_ultrafast.sql` 于 `2026-11-21 21:46:01.841478+08` 应用；`251_group_usage_rollup_nonblocking_build.sql` 于 `21:46:01.896619+08` 应用；`252_channel_pricing_ultrafast_multiplier.sql` 于 `21:46:01.934011+08` 应用。
+- 发布后最近 120 行应用日志中，panic、fatal、migration failure、rollback、`level=error` 签名计数为 0；服务健康，无需回滚。
+- 本轮记录时间：2026-11-21 21:50:18 +08:00。
